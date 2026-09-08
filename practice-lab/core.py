@@ -34,6 +34,24 @@ def read_json(path, fallback):
         return fallback
 
 
+def load_api_key(state, config):
+    saved = read_json(state / 'credentials.json', {})
+    if saved.get('base_url') == config.get('base_url'):
+        return saved.get('api_key', '')
+    return ''
+
+
+def save_api_settings(state, config, key, remember=True):
+    # Keep credentials outside Git; never include them in submission records.
+    credentials = state / 'credentials.json'
+    if remember and key:
+        save_json(credentials, {'base_url': config['base_url'], 'api_key': key})
+        credentials.chmod(0o600)
+    else:
+        credentials.unlink(missing_ok=True)
+    save_json(state / 'api.json', config)
+
+
 def start_attempt(lesson, history, answer, local_checks, secret=''):
     """Record submission before API work; never persist API config or credentials."""
     now = datetime.now(timezone.utc)

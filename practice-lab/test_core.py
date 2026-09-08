@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
 import urllib.error
-from core import Session, LESSONS, checks, review, save_json, start_attempt, finish_attempt, read_json, review_message
+from core import Session, LESSONS, checks, review, save_json, load_api_key, save_api_settings, start_attempt, finish_attempt, read_json, review_message
 
 
 class EngineTests(unittest.TestCase):
@@ -115,6 +115,31 @@ class AttemptTests(unittest.TestCase):
     def test_failed_review_only_displays_relevant_feedback(self):
         result = dict(passed=False, feedback='缺少文件名。', next_step='额外思考')
         self.assertEqual(review_message(False, result), '尚未通过：缺少文件名。')
+
+
+class CredentialTests(unittest.TestCase):
+    def test_key_survives_reload_and_is_private(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            config = {'base_url': 'https://example.com/v1', 'model': 'test'}
+            save_api_settings(state, config, 'synthetic-test-secret')
+            restored = read_json(state / 'api.json', {})
+            self.assertEqual(load_api_key(state, restored), 'synthetic-test-secret')
+            self.assertEqual((state / 'credentials.json').stat().st_mode & 0o777, 0o600)
+            self.assertNotIn('synthetic-test-secret', (state / 'api.json').read_text())
+            self.assertEqual(load_api_key(state, {'base_url': 'https://different.example'}), '')
+
+    def test_forgetting_and_empty_key_clear_saved_secret(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            config = {'base_url': 'https://example.com/v1', 'model': 'test'}
+            save_api_settings(state, config, 'synthetic-test-secret')
+            save_api_settings(state, config, 'synthetic-test-secret', remember=False)
+            self.assertFalse((state / 'credentials.json').exists())
+            self.assertEqual(load_api_key(state, config), '')
+            save_api_settings(state, config, 'synthetic-test-secret')
+            save_api_settings(state, config, '')
+            self.assertEqual(load_api_key(state, config), '')
 
 
 if __name__ == '__main__':

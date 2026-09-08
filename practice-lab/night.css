@@ -1,0 +1,31 @@
+window, dialog, .background { background: #0d1117; color: #c9d1d9; }
+headerbar { background: #111820; color: #c9d1d9; border-bottom: 1px solid #26313c; box-shadow: none; }
+label { color: #c9d1d9; }
+.title { font-family: monospace; font-size: 26px; font-weight: bold; color: #7ee787; }
+.subtitle, .section-label { color: #8b9bab; font-size: 12px; }
+.section-label { font-family: monospace; letter-spacing: 1px; }
+button, combobox button { background-image: none; background: #18212b; color: #c9d1d9; border: 1px solid #303d4b; border-radius: 6px; padding: 9px 14px; box-shadow: none; text-shadow: none; }
+button:hover, combobox button:hover { background: #223242; border-color: #598270; }
+button:disabled { color: #63707d; background: #141b23; }
+button.primary { background: #1e4c36; border-color: #397851; color: #b4f4bd; font-weight: bold; }
+button.primary:hover { background: #286446; }
+button.primary:disabled { background: #192b23; color: #637c6d; border-color: #303d4b; }
+entry, textview, textview text { background: #111923; color: #d5dee8; caret-color: #7ee787; border-radius: 5px; }
+entry { font-family: monospace; padding: 10px; border: 1px solid #354658; box-shadow: none; }
+entry:focus { border-color: #7ee787; }
+entry placeholder { color: #718399; }
+textview { border: 1px solid #26313c; }
+textview selection, textview text selection, entry selection { background: #294e69; color: #ffffff; }
+.terminal, .terminal text { background: #080d12; color: #b7dbbd; font-family: monospace; font-size: 13px; }
+.prompt { font-family: monospace; color: #7ee787; font-size: 12px; }
+.task-panel { background: #131a22; border: 1px solid #26313c; border-radius: 8px; padding: 14px; }
+.task-copy { font-size: 14px; }
+.passed { background: #152c21; color: #7ee787; padding: 9px 12px; border-radius: 6px; font-weight: bold; }
+scrollbar, scrollbar trough { background: #10161d; border: none; }
+scrollbar slider { background: #354658; min-width: 6px; min-height: 24px; border-radius: 5px; }
+scrollbar slider:hover { background: #536b80; }
+paned separator { background: #26313c; min-width: 1px; }
+menu, menuitem, popover { background: #18212b; color: #d5dee8; }
+menuitem:hover { background: #294337; }
+checkbutton check { background: #111923; border: 1px solid #536b80; }
+checkbutton check:checked { background: #286446; color: #c9f5ce; }

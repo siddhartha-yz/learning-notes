@@ -6,7 +6,7 @@ import threading
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
-from core import LESSONS, STATE, Session, checks, read_json, save_json, review, start_attempt, finish_attempt, review_message
+from core import LESSONS, STATE, Session, checks, read_json, save_json, review, start_attempt, finish_attempt, review_message, load_api_key, save_api_settings
 
 
 class Lab(Gtk.Window):
@@ -18,27 +18,16 @@ class Lab(Gtk.Window):
         self.index = 0
         self.busy = False
         self.config = read_json(STATE / 'api.json', {})
-        self.key = os.environ.get('LEARNING_LAB_API_KEY', '')
+        self.key = os.environ.get('LEARNING_LAB_API_KEY') or load_api_key(STATE, self.config)
         self.progress = read_json(STATE / 'progress.json', {})
         self.connect('delete-event', self.close)
         css = Gtk.CssProvider()
-        css.load_from_data(b'''
-            window { background: #f5f3ed; color: #253831; }
-            button { padding: 8px 14px; border-radius: 7px; background: #e5eae4; color: #253831; }
-            textview text, entry { background: #ffffff; color: #253831; }
-            .title { font-size: 25px; font-weight: bold; }
-            .subtitle { color: #60746c; }
-            .passed { background: #dcefe2; color: #195b35; padding: 10px; font-weight: bold; }
-            .terminal text { background: #182c28; color: #d5e8d9; }
-            .terminal { font-family: monospace; font-size: 14px; }
-            .primary { background: #286b54; color: white; }
-            entry { padding: 9px; }
-        ''')
+        css.load_from_path(str(Path(__file__).with_name('night.css')))
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin=20)
         self.add(root)
         top = Gtk.Box(spacing=12)
-        title = Gtk.Label(label='实践工坊', xalign=0)
+        title = Gtk.Label(label='>_ 实践工坊', xalign=0)
         title.get_style_context().add_class('title')
         top.pack_start(title, True, True, 0)
         settings = Gtk.Button(label='API 设置')
@@ -48,12 +37,32 @@ class Lab(Gtk.Window):
         self.subtitle = Gtk.Label(xalign=0)
         self.subtitle.get_style_context().add_class('subtitle')
         root.pack_start(self.subtitle, False, False, 0)
+        self.chapters = list(dict.fromkeys(item['chapter'] for item in LESSONS))
+        self.chapter_indices = []
+        self.selecting = False
+        navigation = Gtk.Box(spacing=12)
+        chapter_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        label = Gtk.Label(label='CHAPTER / 笔记日期', xalign=0)
+        label.get_style_context().add_class('section-label')
+        chapter_box.pack_start(label, False, False, 0)
+        self.chapter_selector = Gtk.ComboBoxText()
+        for chapter in self.chapters:
+            count = sum(item['chapter'] == chapter for item in LESSONS)
+            self.chapter_selector.append_text(f'{chapter}   ·   {count} 道题')
+        self.chapter_selector.set_active(0)
+        self.chapter_selector.connect('changed', self.select_chapter)
+        chapter_box.pack_start(self.chapter_selector, False, False, 0)
+        navigation.pack_start(chapter_box, False, False, 0)
+        lesson_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        label = Gtk.Label(label='EXERCISE / 本章题目', xalign=0)
+        label.get_style_context().add_class('section-label')
+        lesson_box.pack_start(label, False, False, 0)
         self.selector = Gtk.ComboBoxText()
-        for lesson in LESSONS:
-            self.selector.append_text(lesson['chapter'] + ' · ' + lesson['title'])
-        self.selector.set_active(0)
         self.selector.connect('changed', self.select)
-        root.pack_start(self.selector, False, False, 0)
+        lesson_box.pack_start(self.selector, False, False, 0)
+        navigation.pack_start(lesson_box, True, True, 0)
+        root.pack_start(navigation, False, False, 0)
+        self.populate_lessons(0)
         status_row = Gtk.Box(spacing=12)
         self.lesson_status = Gtk.Label(xalign=0, wrap=True)
         status_row.pack_start(self.lesson_status, True, True, 0)
@@ -66,10 +75,12 @@ class Lab(Gtk.Window):
         pane = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         root.pack_start(pane, True, True, 0)
         left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_end=16)
-        left.set_size_request(380, -1)
+        left.set_size_request(400, -1)
+        left.get_style_context().add_class('task-panel')
         pane.pack1(left, False, False)
         self.task = Gtk.Label(xalign=0, yalign=0, wrap=True, selectable=True)
         self.task.set_max_width_chars(42)
+        self.task.get_style_context().add_class('task-copy')
         task_scroll = Gtk.ScrolledWindow()
         task_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.ALWAYS)
         task_scroll.set_overlay_scrolling(False)
@@ -92,6 +103,7 @@ class Lab(Gtk.Window):
         scroll.add(self.terminal)
         right.pack_start(scroll, True, True, 0)
         self.location = Gtk.Label(xalign=0)
+        self.location.get_style_context().add_class('prompt')
         right.pack_start(self.location, False, False, 0)
         self.entry = Gtk.Entry(placeholder_text='输入 ls、cd 或 pwd，按 Enter 执行')
         self.entry.connect('activate', self.run)
@@ -134,7 +146,8 @@ class Lab(Gtk.Window):
 
     def load(self):
         lesson = LESSONS[self.index]
-        completed = sum(v.get('passed', False) for v in self.progress.values())
+        group = [item for item in LESSONS if item['chapter'] == lesson['chapter']]
+        completed = sum(bool(self.progress.get(item['id'], {}).get('passed')) for item in group)
         self.subtitle.set_text('LINUX  /  ' + lesson['chapter'] + '     从笔记到真实操作 · CIFAR-10 实验实践')
         self.task.set_text(lesson['title'] + '\n\n' + lesson['brief'] + '\n\n你的任务\n\n' + lesson['steps'])
         access = '临时 Home 可读写；原始数据只读' if self.session.writable else '临时数据只读'
@@ -143,52 +156,82 @@ class Lab(Gtk.Window):
         self.update_prompt()
         self.answer.get_buffer().set_text('')
         self.location.set_text(self.session.cwd + '  $')
-        self.message(f'已完成 {completed} / {len(LESSONS)} 题。操作后写下观察，再提交评审。')
+        self.message(f'本章已完成 {completed} / {len(group)} 题。操作后写下观察，再提交评审。')
         self.update_completion()
 
+    def populate_lessons(self, index):
+        self.selecting = True
+        chapter = LESSONS[index]['chapter']
+        self.chapter_indices = [i for i, item in enumerate(LESSONS) if item['chapter'] == chapter]
+        self.chapter_selector.set_active(self.chapters.index(chapter))
+        self.selector.remove_all()
+        for i in self.chapter_indices:
+            self.selector.append_text(LESSONS[i]['title'])
+        self.selector.set_active(self.chapter_indices.index(index))
+        self.selecting = False
+
+    def select_lesson(self, index):
+        if self.busy:
+            return
+        self.index = index
+        self.populate_lessons(index)
+        self.restart()
+
+    def select_chapter(self, widget):
+        if self.selecting or self.busy or widget.get_active() < 0:
+            return
+        chapter = self.chapters[widget.get_active()]
+        indices = [i for i, item in enumerate(LESSONS) if item['chapter'] == chapter]
+        target = next((i for i in indices if not self.progress.get(LESSONS[i]['id'], {}).get('passed')), indices[0])
+        self.select_lesson(target)
+
     def update_completion(self):
-        completed = sum(bool(self.progress.get(item['id'], {}).get('passed')) for item in LESSONS)
-        passed = self.progress.get(LESSONS[self.index]['id'], {}).get('passed', False)
+        passed = bool(self.progress.get(LESSONS[self.index]['id'], {}).get('passed'))
+        chapter = LESSONS[self.index]['chapter']
+        indices = self.chapter_indices
+        completed = sum(bool(self.progress.get(LESSONS[i]['id'], {}).get('passed')) for i in indices)
+        all_done = all(self.progress.get(item['id'], {}).get('passed') for item in LESSONS)
         style = self.lesson_status.get_style_context()
         style.remove_class('passed')
-        if completed == len(LESSONS):
-            text = f'✓ 全部完成！{completed} / {len(LESSONS)} 题已通过，可自由选题复习。'
-            style.add_class('passed')
+        if all_done:
+            text = f'✓ 全部完成！ · {chapter} 本章 {completed} / {len(indices)} 题已通过'
+        elif completed == len(indices):
+            text = f'✓ {chapter} 本组完成！{completed} / {len(indices)} 题已通过'
         elif passed:
-            text = f'✓ 本题已通过 · 已完成 {completed} / {len(LESSONS)} 题'
-            style.add_class('passed')
+            text = f'✓ 本题已通过 · 本章已完成 {completed} / {len(indices)} 题'
         else:
-            text = f'第 {self.index + 1} / {len(LESSONS)} 题 · 待通过 · 已完成 {completed} 题'
-        chapter = LESSONS[self.index]['chapter']
-        group = [item for item in LESSONS if item['chapter'] == chapter]
-        group_done = sum(bool(self.progress.get(item['id'], {}).get('passed')) for item in group)
-        if group_done == len(group) and completed < len(LESSONS):
-            text = f'✓ {chapter} 本组完成！{group_done} / {len(group)} 题已通过 · 全部题目 {completed} / {len(LESSONS)}'
+            text = f'{chapter}  /  第 {indices.index(self.index) + 1} 题，共 {len(indices)} 题 · 待通过'
+        if passed:
+            style.add_class('passed')
         self.lesson_status.set_text(text)
         model = self.selector.get_model()
-        for index, item in enumerate(LESSONS):
-            mark = '✓ 已通过  ' if self.progress.get(item['id'], {}).get('passed') else ''
-            model[index][0] = mark + item['chapter'] + ' · ' + item['title']
-        self.next_button.set_label('进入下一题 →' if self.index < len(LESSONS) - 1 else '继续未完成的题目 →')
-        if self.index < len(LESSONS) - 1 and LESSONS[self.index + 1]['chapter'] != chapter:
-            self.next_button.set_label('进入 ' + LESSONS[self.index + 1]['chapter'] + ' 练习 →')
-        self.next_button.set_visible(bool(passed) and completed < len(LESSONS))
+        for row, i in enumerate(indices):
+            mark = '✓ 已通过  ' if self.progress.get(LESSONS[i]['id'], {}).get('passed') else ''
+            model[row][0] = mark + LESSONS[i]['title']
+        self.next_index = None
+        if passed and not all_done:
+            position = indices.index(self.index)
+            if position + 1 < len(indices):
+                self.next_index = indices[position + 1]
+            else:
+                self.next_index = next((i for i in indices if not self.progress.get(LESSONS[i]['id'], {}).get('passed')), None)
+                if self.next_index is None:
+                    self.next_index = next(i for i, item in enumerate(LESSONS) if not self.progress.get(item['id'], {}).get('passed'))
+        label = '进入下一题 →'
+        if self.next_index is not None and LESSONS[self.next_index]['chapter'] != chapter:
+            label = '进入 ' + LESSONS[self.next_index]['chapter'] + ' 练习 →'
+        self.next_button.set_label(label)
+        self.next_button.set_visible(self.next_index is not None)
 
     def advance(self, *_):
-        if self.busy or not self.progress.get(LESSONS[self.index]['id'], {}).get('passed'):
-            return
-        if self.index < len(LESSONS) - 1:
-            self.selector.set_active(self.index + 1)
-        else:
-            for index, lesson in enumerate(LESSONS):
-                if not self.progress.get(lesson['id'], {}).get('passed'):
-                    self.selector.set_active(index)
-                    break
-        self.entry.grab_focus()
+        if not self.busy and self.next_index is not None:
+            self.select_lesson(self.next_index)
+            self.entry.grab_focus()
 
     def select(self, widget):
-        self.index = widget.get_active()
-        self.restart()
+        if not self.selecting and not self.busy and widget.get_active() >= 0:
+            self.index = self.chapter_indices[widget.get_active()]
+            self.restart()
 
     def restart(self, *_):
         if self.busy:
@@ -199,7 +242,7 @@ class Lab(Gtk.Window):
 
     def set_busy(self, value):
         self.busy = value
-        for widget in [self.selector, self.entry, self.submit, self.reset, self.answer, self.next_button]:
+        for widget in [self.chapter_selector, self.selector, self.entry, self.submit, self.reset, self.answer, self.next_button]:
             widget.set_sensitive(not value)
 
     def background(self, action, done, on_error=None):
@@ -292,20 +335,26 @@ class Lab(Gtk.Window):
         box.set_border_width(18)
         fields = []
         for label, value, hidden in [('Base URL（包含 /v1 等服务商前缀，不含 /chat/completions）', self.config.get('base_url', ''), False),
-                                      ('模型名', self.config.get('model', ''), False), ('API 密钥（仅当前运行期间保存）', self.key, True)]:
+                                      ('模型名', self.config.get('model', ''), False), ('API 密钥', self.key, True)]:
             box.pack_start(Gtk.Label(label=label, xalign=0), False, False, 0)
             entry = Gtk.Entry(text=value, visibility=not hidden)
             entry.set_width_chars(62)
             box.pack_start(entry, False, False, 0)
             fields.append(entry)
-        note = Gtk.Label(label='提交时仅向此服务发送本题题目、命令输出和你的解释。\n地址和模型保存在本机；密钥不写入仓库或配置文件。', xalign=0)
+        remember = Gtk.CheckButton(label='在本机记住密钥，下次启动自动加载')
+        remember.set_active(self.config.get('remember_key', True))
+        box.pack_start(remember, False, False, 0)
+        note = Gtk.Label(label='密钥保存在仓库外、仅当前用户可读写的本机文件中。\n取消勾选并保存会删除已保存的密钥；留空保存也可清除。', xalign=0)
         box.pack_start(note, False, False, 0)
         dialog.show_all()
         if dialog.run() == Gtk.ResponseType.OK:
-            self.config = dict(base_url=fields[0].get_text().strip(), model=fields[1].get_text().strip())
+            self.config = dict(base_url=fields[0].get_text().strip(), model=fields[1].get_text().strip(), remember_key=remember.get_active())
             self.key = fields[2].get_text().strip()
-            save_json(STATE / 'api.json', self.config)
-            self.message('API 设置已保存。填写观察后可提交给 Agent。')
+            try:
+                save_api_settings(STATE, self.config, self.key, remember.get_active())
+                self.message('API 设置已保存。' + ('下次启动将自动加载密钥。' if remember.get_active() and self.key else '密钥仅用于本次运行。'))
+            except OSError:
+                self.message('本机设置保存失败，请检查状态目录权限。当前密钥仍可在本次运行中使用。')
         dialog.destroy()
 
     def source(self, *_):

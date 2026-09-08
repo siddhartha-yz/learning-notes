@@ -8,7 +8,7 @@ from unittest.mock import patch
 import app
 import core
 from test_file_ops import WORKFLOWS
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, GLib
 
 
 def settle(window):
@@ -32,12 +32,32 @@ def main():
         window = app.Lab()
         window.show_all()
         try:
-            window.config = dict(base_url='https://example.com/v1', model='mock')
-            window.key = 'mock'
+            assert len(window.selector.get_model()) == 3
+            assert len(window.chapter_selector.get_model()) == 2
+            window.chapter_selector.set_active(1)
+            assert window.index == 3
+            assert len(window.selector.get_model()) == 3
+            assert '26.9.3' not in window.selector.get_active_text()
+            # Exercise the actual settings dialog, then reopen the app from saved state.
+            def save_dialog():
+                dialog = next(w for w in Gtk.Window.list_toplevels() if isinstance(w, Gtk.Dialog))
+                fields = [w for w in dialog.get_content_area().get_children() if isinstance(w, Gtk.Entry)]
+                for field, value in zip(fields, ['https://example.com/v1', 'mock', 'synthetic-ui-secret']):
+                    field.set_text(value)
+                dialog.response(Gtk.ResponseType.OK)
+                return False
+            GLib.timeout_add(20, save_dialog)
+            window.settings()
+            assert core.load_api_key(app.STATE, window.config) == 'synthetic-ui-secret'
+            with patch.dict('os.environ', {'LEARNING_LAB_API_KEY': ''}):
+                reopened = app.Lab()
+            assert reopened.key == 'synthetic-ui-secret'
+            reopened.session.close()
+            reopened.destroy()
             # Preserve existing chapter semantics when a second chapter is added.
             for lesson in app.LESSONS[:3]:
                 window.progress[lesson['id']] = {'passed': True}
-            window.selector.set_active(2)
+            window.select_lesson(2)
             assert '26.9.3 本组完成' in window.lesson_status.get_text()
             assert '26.9.4' in window.next_button.get_label()
             window.next_button.emit('clicked')
@@ -71,7 +91,7 @@ def main():
                 assert data['status'] == 'reviewed'
                 assert data['lesson']['chapter'] == '26.9.4'
                 assert data['history'] and data['local_checks']
-            window.selector.set_active(0)
+            window.select_lesson(0)
             assert not window.session.writable
             assert len(window.session.commands) == 3
             print('GTK smoke passed: chapter navigation, 3 real workflows, Space paging, mock review, logs, completion, old chapter')

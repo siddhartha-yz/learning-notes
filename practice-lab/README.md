@@ -15,7 +15,7 @@
 | 26.9.4 | 复制模板并整理实验配置 | `cat`、`cp -r`、`mv`、`~` |
 | 26.9.4 | 阅读清单后清理临时输出 | `more` 分页、通配符预览、`rm`、保留结果 |
 
-所有题目保存在 `lessons.json`，每题引用对应原始笔记。切题后进入独立环境，不依赖上一题操作结果。题目列表显示日期和通过标记；每组完成后有明确提示，可以进入下一组。
+所有题目保存在 `lessons.json`，每题引用对应原始笔记。切题后进入独立环境，不依赖上一题操作结果。界面采用终端风格夜间主题。先选择日期章节，再从“本章题目”选择该章练习；题数、题号和进度均按章节显示。每组完成后有明确提示，可以进入下一组。
 
 ## 启动
 
@@ -45,7 +45,7 @@ sudo apt install python3-gi gir1.2-gtk-3.0 bubblewrap
 
 Base URL 使用兼容 OpenAI Chat Completions 的服务地址，保留服务商所需前缀（如 `/v1`），应用追加 `/chat/completions`。模型需要支持 `messages` 和文本 JSON 输出；不强制 JSON schema 功能。请求格式参考 [官方 API 文档](https://developers.openai.com/api/reference/resources/chat)。
 
-密钥只在内存中保留，也可通过 `LEARNING_LAB_API_KEY` 环境变量提供。地址和模型保存在 `$XDG_STATE_HOME/learning-notes-lab/api.json`（默认 `~/.local/state/learning-notes-lab/api.json`），进度保存在同目录 `progress.json`。这些本机配置不提交到 Git。
+API 设置默认勾选“在本机记住密钥”，保存一次后重启自动加载。地址和模型保存在 `$XDG_STATE_HOME/learning-notes-lab/api.json`（默认 `~/.local/state/learning-notes-lab/api.json`），密钥保存在同目录 `credentials.json`，权限为 `0600`（仅当前用户可读写）。这是本机明文文件，不是加密钥匙串；文件位于仓库外，不提交到 Git，也不进入练习环境或日志。密钥与 Base URL 关联，地址不匹配时不自动加载。取消勾选并保存，或清空密钥再保存，会删除已保存的密钥。也可通过 `LEARNING_LAB_API_KEY` 环境变量提供密钥，环境变量优先。进度继续保存在同目录 `progress.json`。
 
 ## 执行范围
 
