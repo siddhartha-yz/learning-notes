@@ -28,6 +28,7 @@ class Lab(Gtk.Window):
             textview text, entry { background: #ffffff; color: #253831; }
             .title { font-size: 25px; font-weight: bold; }
             .subtitle { color: #60746c; }
+            .passed { background: #dcefe2; color: #195b35; padding: 10px; font-weight: bold; }
             .terminal text { background: #182c28; color: #d5e8d9; }
             .terminal { font-family: monospace; font-size: 14px; }
             .primary { background: #286b54; color: white; }
@@ -53,6 +54,15 @@ class Lab(Gtk.Window):
         self.selector.set_active(0)
         self.selector.connect('changed', self.select)
         root.pack_start(self.selector, False, False, 0)
+        status_row = Gtk.Box(spacing=12)
+        self.lesson_status = Gtk.Label(xalign=0, wrap=True)
+        status_row.pack_start(self.lesson_status, True, True, 0)
+        self.next_button = Gtk.Button(label='进入下一题 →')
+        self.next_button.get_style_context().add_class('primary')
+        self.next_button.set_no_show_all(True)
+        self.next_button.connect('clicked', self.advance)
+        status_row.pack_start(self.next_button, False, False, 0)
+        root.pack_start(status_row, False, False, 0)
         pane = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         root.pack_start(pane, True, True, 0)
         left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_end=16)
@@ -128,6 +138,40 @@ class Lab(Gtk.Window):
         self.answer.get_buffer().set_text('')
         self.location.set_text(self.session.cwd + '  $')
         self.message(f'已完成 {completed} / {len(LESSONS)} 题。操作后写下观察，再提交评审。')
+        self.update_completion()
+
+    def update_completion(self):
+        completed = sum(bool(self.progress.get(item['id'], {}).get('passed')) for item in LESSONS)
+        passed = self.progress.get(LESSONS[self.index]['id'], {}).get('passed', False)
+        style = self.lesson_status.get_style_context()
+        style.remove_class('passed')
+        if completed == len(LESSONS):
+            text = f'✓ 全部完成！{completed} / {len(LESSONS)} 题已通过，可自由选题复习。'
+            style.add_class('passed')
+        elif passed:
+            text = f'✓ 本题已通过 · 已完成 {completed} / {len(LESSONS)} 题'
+            style.add_class('passed')
+        else:
+            text = f'第 {self.index + 1} / {len(LESSONS)} 题 · 待通过 · 已完成 {completed} 题'
+        self.lesson_status.set_text(text)
+        model = self.selector.get_model()
+        for index, item in enumerate(LESSONS):
+            mark = '✓ 已通过  ' if self.progress.get(item['id'], {}).get('passed') else ''
+            model[index][0] = mark + item['title']
+        self.next_button.set_label('进入下一题 →' if self.index < len(LESSONS) - 1 else '继续未完成的题目 →')
+        self.next_button.set_visible(bool(passed) and completed < len(LESSONS))
+
+    def advance(self, *_):
+        if self.busy or not self.progress.get(LESSONS[self.index]['id'], {}).get('passed'):
+            return
+        if self.index < len(LESSONS) - 1:
+            self.selector.set_active(self.index + 1)
+        else:
+            for index, lesson in enumerate(LESSONS):
+                if not self.progress.get(lesson['id'], {}).get('passed'):
+                    self.selector.set_active(index)
+                    break
+        self.entry.grab_focus()
 
     def select(self, widget):
         self.index = widget.get_active()
@@ -142,7 +186,7 @@ class Lab(Gtk.Window):
 
     def set_busy(self, value):
         self.busy = value
-        for widget in [self.selector, self.entry, self.submit, self.reset, self.answer]:
+        for widget in [self.selector, self.entry, self.submit, self.reset, self.answer, self.next_button]:
             widget.set_sensitive(not value)
 
     def background(self, action, done):
@@ -195,6 +239,7 @@ class Lab(Gtk.Window):
             passed = all(ok for _, ok in local) and result['passed']
             self.progress[lesson['id']] = {'passed': passed, 'feedback': result['feedback']}
             save_json(STATE / 'progress.json', self.progress)
+            self.update_completion()
             self.message(summary + '\n\n' + ('通过！' if passed else '继续尝试：') + result['feedback'] + '\n' + result['next_step'])
         self.background(lambda: review(config, key, lesson, history, answer, local), done)
 
