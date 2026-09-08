@@ -6,7 +6,7 @@ import threading
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
-from core import LESSONS, STATE, Session, checks, read_json, save_json, review
+from core import LESSONS, STATE, Session, checks, read_json, save_json, review, start_attempt, finish_attempt, review_message
 
 
 class Lab(Gtk.Window):
@@ -189,7 +189,7 @@ class Lab(Gtk.Window):
         for widget in [self.selector, self.entry, self.submit, self.reset, self.answer, self.next_button]:
             widget.set_sensitive(not value)
 
-    def background(self, action, done):
+    def background(self, action, done, on_error=None):
         self.set_busy(True)
         def worker():
             try:
@@ -200,6 +200,8 @@ class Lab(Gtk.Window):
         def finish(result, error):
             self.set_busy(False)
             if error:
+                if on_error:
+                    on_error()
                 self.message(error.replace(self.key, '[密钥已隐藏]') if self.key else error)
             else:
                 done(result)
@@ -230,18 +232,26 @@ class Lab(Gtk.Window):
         if len(answer) > 6000:
             self.message('请把观察与解释控制在 6000 字以内。')
             return
+        try:
+            attempt = start_attempt(lesson, list(self.session.history), answer, local, self.key)
+        except OSError:
+            self.message('答题日志保存失败，请检查仓库写入权限后重试。')
+            return
         if not self.key or not self.config.get('base_url') or not self.config.get('model'):
+            finish_attempt(attempt, 'api_not_configured')
             self.message(summary + '\n未完成 Agent 评审：请先配置 API 地址、模型名和密钥。')
             return
         self.message(summary + '\nAgent 正在阅读本题命令记录与解释…')
         config, key, history = dict(self.config), self.key, list(self.session.history)
         def done(result):
             passed = all(ok for _, ok in local) and result['passed']
+            finish_attempt(attempt, 'reviewed', result, passed)
             self.progress[lesson['id']] = {'passed': passed, 'feedback': result['feedback']}
             save_json(STATE / 'progress.json', self.progress)
             self.update_completion()
-            self.message(summary + '\n\n' + ('通过！' if passed else '继续尝试：') + result['feedback'] + '\n' + result['next_step'])
-        self.background(lambda: review(config, key, lesson, history, answer, local), done)
+            self.message(summary + '\n\n' + review_message(passed, result))
+        self.background(lambda: review(config, key, lesson, history, answer, local), done,
+                        on_error=lambda: finish_attempt(attempt, 'api_error'))
 
     def settings(self, *_):
         dialog = Gtk.Dialog(title='模型 API 设置', transient_for=self, modal=True)

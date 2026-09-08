@@ -26,7 +26,7 @@ sudo apt install python3-gi gir1.2-gtk-3.0 bubblewrap
 4. 打开 API 设置，填写兼容 OpenAI Chat Completions 的 HTTPS Base URL、模型名和密钥。Base URL 保留服务商所需前缀（如 `/v1`），应用自动追加 `/chat/completions`。
 5. 提交给 Agent。命令证据检查与模型评审均满足后才通过；缺少配置、网络失败或响应无效均不会标记通过。
 
-密钥只在内存中保留，也可通过 `LEARNING_LAB_API_KEY` 环境变量提供。模型名与地址保存在 `$XDG_STATE_HOME/learning-notes-lab/api.json`，默认是 `~/.local/state/learning-notes-lab/api.json`；进度保存在同目录 `progress.json`。密钥和练习记录不写入 Git。提交会向你指定的服务发送当前题目、最多最近 80 条练习命令及输出、你的解释；不上传整个笔记仓库。
+密钥只在内存中保留，也可通过 `LEARNING_LAB_API_KEY` 环境变量提供。模型名与地址保存在 `$XDG_STATE_HOME/learning-notes-lab/api.json`，默认是 `~/.local/state/learning-notes-lab/api.json`；进度保存在同目录 `progress.json`。密钥不写入 Git；提交记录保存在仓库内的 `practice-lab/attempts/`，会随 `note` 命令上传。提交会向你指定的服务发送当前题目、最多最近 80 条练习命令及输出、你的解释；不上传整个笔记仓库。
 
 ## 本版终端范围
 
@@ -58,3 +58,5 @@ python3 -m unittest discover -s practice-lab -v
 先使用本机已有的 GTK，避免为三道题引入浏览器服务和完整前端构建链。教学内容、执行器与界面分离，后续可扩展章节、命令历史、渐进提示、复习队列以及更完整的容器终端。原有 `note` 命令仍按原流程上传仓库内容。
 
 可选：执行 `python3 practice-lab/install-launcher.py` 将当前仓库注册到应用菜单，搜索“实践工坊”即可启动。仓库移动后重新执行即可更新路径。
+
+评审通过时只显示固定的通过提示，不追加拓展思考；未通过时只指出本题需要修正的内容。答题日志格式见 [答题记录说明](./attempts/README.md)。

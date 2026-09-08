@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
 import urllib.error
-from core import Session, LESSONS, checks, review, save_json
+from core import Session, LESSONS, checks, review, save_json, start_attempt, finish_attempt, read_json, review_message
 
 
 class EngineTests(unittest.TestCase):
@@ -63,7 +63,7 @@ class ApiTests(unittest.TestCase):
         opener.open.return_value.__enter__.return_value.read.return_value = json.dumps(
             {'choices': [{'message': {'content': json.dumps(result)}}]}).encode()
         with patch('urllib.request.build_opener', return_value=opener):
-            self.assertEqual(self.call_review(), result)
+            self.assertEqual(self.call_review(), dict(passed=True, feedback='本题回答正确，已通过。', next_step=''))
         request = opener.open.call_args.args[0]
         self.assertEqual(request.full_url, 'https://example.com/v1/chat/completions')
         self.assertEqual(json.loads(request.data)['model'], 'test-model')
@@ -91,6 +91,30 @@ class ApiTests(unittest.TestCase):
             path = Path(directory) / 'progress.json'
             save_json(path, {'passed': True})
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+
+class AttemptTests(unittest.TestCase):
+    def test_submission_snapshot_and_error_are_saved_without_key(self):
+        with tempfile.TemporaryDirectory() as directory, patch('core.ATTEMPTS', Path(directory)):
+            path = start_attempt(LESSONS[0], [{'command': 'pwd', 'output': '/home/student'}],
+                                 '我的答案 accidental-secret', [('位置', True)], 'accidental-secret')
+            self.assertNotIn('accidental-secret', path.read_text())
+            record = read_json(path, {})
+            self.assertEqual(record['status'], 'submitted')
+            self.assertEqual(record['lesson'], LESSONS[0])
+            self.assertEqual(record['history'][0]['command'], 'pwd')
+            finish_attempt(path, 'api_error')
+            self.assertEqual(read_json(path, {})['status'], 'api_error')
+            self.assertFalse(read_json(path, {})['passed'])
+
+    def test_success_cannot_display_extra_exercises(self):
+        result = dict(passed=True, feedback='再做一道额外题', next_step='为什么？')
+        self.assertEqual(review_message(True, result), '本题回答正确，已通过。')
+        self.assertIn('命令检查项', review_message(False, result))
+
+    def test_failed_review_only_displays_relevant_feedback(self):
+        result = dict(passed=False, feedback='缺少文件名。', next_step='额外思考')
+        self.assertEqual(review_message(False, result), '尚未通过：缺少文件名。')
 
 
 if __name__ == '__main__':

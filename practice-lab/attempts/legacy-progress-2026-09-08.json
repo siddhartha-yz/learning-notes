@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "kind": "legacy_progress_summary",
+  "imported_at": "2026-09-08T14:21:57.769026+00:00",
+  "note": "旧版仅保存每题最近评语和通过状态。原始答案、命令历史、提交时间与次数未保存，无法还原。此文件不是完整答题日志。",
+  "progress": {
+    "linux-0903-location": {
+      "passed": true,
+      "feedback": "你已正确完成位置确认：先用 pwd 确认在 /home/student，查看项目内容后 cd 进入 projects/cifar10 并用 pwd 确认；随后留在项目目录直接 ls /datasets/cifar10，看到了 train 与 val 两个划分。书面解释也抓住了重点：开头 / 表示从根目录起算，省略后会从当前目录起算，而当前项目内没有 datasets/cifar10。"
+    },
+    "linux-0903-hidden": {
+      "passed": true,
+      "feedback": "已掌握：你正确执行了普通 ls 和 ls -a，在项目目录下找到了 .env 和 .experiment，并且认识到点开头的文件默认不显示、普通 ls 看不到它们并不代表文件被删除。说明隐藏文件的概念你已经理解并能用命令验证。可再注意一点：更准确的说法应该是“ls 默认不显示隐藏文件”，而不是“ls 不可显示”——因为它加 -a 或 -A 就能显示了。"
+    },
+    "linux-0903-checkpoint": {
+      "passed": true,
+      "feedback": "你已完成恢复前检查：用 `ls -lh` 查看了 checkpoints 目录，正确识别出 `epoch-03.pt` 为零字节文件，并记录了另外两个文件约为 12M 和 24M；对“不能作为有效权重”和“仅凭大小不足以判断可加载性或准确率高低”的解释也符合要点，最后用不带参数的 `cd` 返回了 Home 并用 `pwd` 确认。"
+    }
+  }
+}
