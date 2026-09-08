@@ -1,0 +1,35 @@
+[
+  {
+    "id": "linux-0903-location",
+    "title": "01  找到你的训练项目",
+    "source": "Linux系统学习/26.9.3.md",
+    "brief": "你刚登录实验室服务器，准备训练 CIFAR-10 分类器。终端初始位置是 /home/student。项目在 /home/student/projects/cifar10，数据在 /datasets/cifar10。先确定位置，避免把训练脚本与数据目录混淆。",
+    "steps": "① 用 pwd 确认初始位置。\n② 查看项目目录内容，再进入项目并用 pwd 确认。\n③ 不离开项目，列出 /datasets/cifar10 的内容。\n④ 写下：数据目录有哪些划分？为何 /datasets/cifar10 开头的 / 不能省略？",
+    "hint": "pwd 查看当前位置；cd 改变位置；ls 可以直接接绝对路径，查看目录不必进入它。",
+    "rubric": "应识别 train 与 val；解释 / 从根目录起算，省略后从当前目录起算，项目目录下不存在 datasets/cifar10。",
+    "checks": [["pwd", "/home/student\n", "确认初始 Home 目录"], ["pwd", "/home/student/projects/cifar10\n", "进入并确认训练项目位置"], ["ls", "train", "查看训练数据划分"], ["ls", "val", "查看验证数据划分"]],
+    "cwd": "/home/student/projects/cifar10"
+  },
+  {
+    "id": "linux-0903-hidden",
+    "title": "02  实验配置真的丢了吗？",
+    "source": "Linux系统学习/26.9.3.md",
+    "brief": "同学说项目中没有保存实验环境信息，因为普通 ls 只看到了 train.py、README.md 和 checkpoints。你要核实这一判断。项目仍在 /home/student/projects/cifar10。",
+    "steps": "① 在项目目录先执行普通 ls，再执行包含隐藏项的列表。\n② 找出隐藏的环境文件与实验目录。\n③ 写下两个名称，解释为什么第一次没看见，以及这是否意味着文件被删除。\n无需打开文件，也无需安装任何机器学习库。",
+    "hint": "Linux 文件名以 . 开头时默认隐藏；ls 的 -a 选项会显示它们。注意 . 和 .. 本身不是实验配置。",
+    "rubric": "必须指出 .env 与 .experiment；点开头导致普通 ls 隐藏，不代表丢失或删除。不能凭名称断言文件内容或环境一定可复现。",
+    "checks": [["plain_ls", "train.py", "先观察普通目录列表"], ["ls", ".env", "找到隐藏环境文件"], ["ls", ".experiment", "找到隐藏实验目录"]],
+    "cwd": null
+  },
+  {
+    "id": "linux-0903-checkpoint",
+    "title": "03  恢复训练前的检查",
+    "source": "Linux系统学习/26.9.3.md",
+    "brief": "训练中断了。checkpoints 中有三个候选文件，先用文件元数据做恢复前检查。这里是稀疏占位文件，模拟检查点大小，不含真实模型权重。",
+    "steps": "① 用详细且人类易读的列表检查项目的 checkpoints 目录。\n② 写下零字节文件名，以及另外两个文件的大致大小。\n③ 解释：哪个文件显然不能作为有效权重？仅凭大小能否判断其余文件一定可加载，或哪个模型准确率更高？\n④ 最后用不带参数的 cd 返回 Home，并用 pwd 确认。",
+    "hint": "ls -l 显示大小等元数据；再加 -h 让大小更易读。cd 不带参数返回 Home。",
+    "rubric": "epoch-03.pt 是 0 字节，不能作为有效权重；epoch-01.pt 为 12 MiB、epoch-02.pt 为 24 MiB。非零不保证可加载，大小不能判定准确率，需要加载验证、评估指标等证据。",
+    "checks": [["long_human", "epoch-03.pt", "用详细、人类易读列表检查权重"], ["pwd", "/home/student\n", "确认返回 Home"]],
+    "cwd": "/home/student"
+  }
+]
