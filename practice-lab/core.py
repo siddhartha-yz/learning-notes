@@ -1,4 +1,4 @@
-"""Lesson engine: real, read-only Linux exercises and optional API review."""
+"""Lesson engine: isolated Linux exercises and optional API review."""
 import json
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -65,10 +65,14 @@ def review_message(passed, result):
 
 
 class Session:
-    def __init__(self):
+    def __init__(self, lesson=None):
+        self.lesson = lesson or LESSONS[0]
+        self.writable = self.lesson.get('environment') == 'file-ops'
+        self.pager = None
+        self.fixtures = {}
         self.temp = tempfile.TemporaryDirectory(prefix='learning-notes-lab-')
         self.root = Path(self.temp.name)
-        self.cwd = '/home/student'
+        self.cwd = self.lesson.get('start_cwd', '/home/student')
         self.history = []
         for directory in ['home/student/projects/cifar10/checkpoints',
                           'home/student/projects/cifar10/.experiment',
@@ -83,19 +87,76 @@ class Session:
             with (project / 'checkpoints' / name).open('wb') as f:
                 f.truncate(size)
 
+        if self.writable:
+            fixtures = {
+                'templates/baseline/config.yaml': 'seed: 42\nbatch_size: 64\n',
+                'templates/baseline/labels.txt': 'airplane\nautomobile\nbird\n',
+                'runs/review/tmp_batch.cache': 'temporary batch cache\n',
+                'runs/review/tmp_worker.log': 'temporary worker log\n',
+                'runs/review/scratch/intermediate.bin': 'temporary intermediate\n',
+                'runs/review/best.pt': 'checkpoint-placeholder\n',
+                'runs/review/metrics.csv': 'epoch,accuracy\n3,0.72\n',
+                'runs/review/cleanup-plan.txt': (
+                    'CIFAR-10 cleanup plan\n'
+                    'Read the full plan before deleting files.\n'
+                    'The training process has already stopped.\n'
+                    'This exercise contains placeholder files.\n'
+                    'Temporary files are disposable.\n'
+                    'Model results must remain available.\n'
+                    'DELETE: tmp_batch.cache\n'
+                    'DELETE: tmp_worker.log\n'
+                    'DELETE DIRECTORY: scratch (including its contents)\n'
+                    'Preview matching names before deletion.\n'
+                    'Do not delete the entire review directory.\n'
+                    'The final page specifies the keep list.\n'
+                    'KEEP: best.pt, metrics.csv, cleanup-plan.txt\n'
+                    'End of cleanup plan.\n'),
+            }
+            # Each exercise starts independently with only relevant fixtures.
+            prefix = {'linux-0904-workspace': None,
+                      'linux-0904-config': 'templates/',
+                      'linux-0904-cleanup': 'runs/review/'}[self.lesson['id']]
+            for name, content in fixtures.items():
+                if prefix and name.startswith(prefix):
+                    path = project / name
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(content)
+                    self.fixtures[name] = content
+
+    @property
+    def commands(self):
+        return ('ls', 'cd', 'pwd', 'mkdir', 'touch', 'cat', 'more', 'cp', 'mv', 'rm') if self.writable else ('ls', 'cd', 'pwd')
+
+    def page(self, key):
+        if not self.pager:
+            raise ValueError('当前没有分页内容。')
+        record, remaining = self.pager
+        if key == 'q':
+            self.pager = None
+            record.setdefault('pager_actions', []).append('quit')
+            return '[已退出分页]\n'
+        page, remaining = remaining[:6], remaining[6:]
+        output = ''.join(page)
+        record['output'] += output
+        record.setdefault('pager_actions', []).append('next')
+        self.pager = (record, remaining) if remaining else None
+        return output
+
     def close(self):
         self.temp.cleanup()
 
     def run(self, command):
-        # Deliberately limited to the source lesson; no shell expansion/operators.
+        # One whitelisted command; Bash handles quoted paths, ~ and globs normally.
         # Commands are executed by real Bash/coreutils inside a second isolation layer.
         try:
             words = shlex.split(command)
         except ValueError as exc:
             raise ValueError('引号没有配对。') from exc
-        if not words or words[0] not in ('ls', 'cd', 'pwd'):
-            raise ValueError('本课支持 ls、cd、pwd；每次输入一条命令。')
-        if any(any(c in w for c in ';|&<>`$\n\r') for w in words):
+        if self.pager:
+            raise ValueError('请先按 Space 翻页或 q 退出分页。')
+        if not words or words[0] not in self.commands:
+            raise ValueError('本课支持 ' + '、'.join(self.commands) + '；每次输入一条命令。')
+        if any(c in command for c in ';|&<>`$(){}\n\r'):
             raise ValueError('本课每次执行一条命令，不使用管道、重定向或变量。')
         if len(command) > 2000:
             raise ValueError('命令过长。')
@@ -106,17 +167,17 @@ class Session:
         for directory in ['/bin', '/lib', '/lib64']:
             if Path(directory).exists():
                 args += ['--ro-bind', directory, directory]
-        args += ['--ro-bind', str(self.root / 'home'), '/home',
+        args += ['--bind' if self.writable else '--ro-bind', str(self.root / 'home'), '/home',
                  '--ro-bind', str(self.root / 'datasets'), '/datasets',
                  '--dev', '/dev', '--chdir', self.cwd]
         # Output is bounded before returning to Python; no host home or secrets mounted.
-        script = shlex.join(words)
+        script = command
         marker = '__LEARNING_LAB_CWD__'
         script += '\nresult=$?\nprintf "\\n' + marker + '%s\\n" "$PWD"\nexit "$result"'
         with tempfile.TemporaryFile() as output:
             proc = subprocess.Popen(args + ['/bin/bash', '--noprofile', '--norc', '-c',
                                              'ulimit -f 128; ' + script],
-                                    stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
+                                    stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
             try:
                 proc.wait(timeout=4)
             except subprocess.TimeoutExpired:
@@ -133,8 +194,46 @@ class Session:
             raise ValueError('隔离终端未能运行：' + text[:500])
         record = dict(command=command, words=words, output=text, cwd_before=before,
                       cwd_after=self.cwd, exit_code=proc.returncode)
+        if words[0] == 'more' and proc.returncode == 0:
+            lines = text.splitlines(keepends=True)
+            record['output'] = ''.join(lines[:6])
+            record['pager_actions'] = ['open']
+            if len(lines) > 6:
+                self.pager = (record, lines[6:])
         self.history.append(record)
         return record
+
+
+def state_checks(lesson, session):
+    project = session.root / 'home/student/projects/cifar10'
+    def safe_path(relative):
+        path = project / relative
+        if not path.resolve().is_relative_to(session.root.resolve()):
+            raise ValueError('Path outside exercise')
+        return path
+    results = []
+    for kind, name, title, *extra in lesson.get('state_checks', []):
+        try:
+            path = safe_path(name)
+            if kind == 'dir':
+                ok = path.is_dir()
+            elif kind == 'absent':
+                ok = not path.exists() and not path.is_symlink()
+            elif kind == 'empty':
+                ok = path.is_file() and path.stat().st_size == 0
+            else:
+                content = path.read_bytes() if path.is_file() and path.stat().st_size < 131072 else None
+                if kind == 'same':
+                    original = safe_path(extra[0])
+                    expected = original.read_bytes() if original.stat().st_size < 131072 else None
+                    ok = content is not None and expected is not None and content == expected
+                else:
+                    expected = extra[0] if kind == 'text' else session.fixtures[name]
+                    ok = content == expected.encode()
+        except (OSError, ValueError, KeyError):
+            ok = False
+        results.append((title, ok))
+    return results
 
 
 def checks(lesson, session):
@@ -159,6 +258,9 @@ def checks(lesson, session):
     if lesson['id'] == 'linux-0903-checkpoint':
         results.append(('使用不带参数的 cd 返回 Home', any(
             r['words'] == ['cd'] and r['exit_code'] == 0 for r in session.history)))
+    results.extend(state_checks(lesson, session))
+    if session.pager:
+        results.append(('读完分页或退出后再提交', False))
     if lesson['cwd']:
         results.append(('结束时所在目录正确', session.cwd == lesson['cwd']))
     return results

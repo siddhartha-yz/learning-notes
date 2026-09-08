@@ -45,12 +45,12 @@ class Lab(Gtk.Window):
         settings.connect('clicked', self.settings)
         top.pack_start(settings, False, False, 0)
         root.pack_start(top, False, False, 0)
-        subtitle = Gtk.Label(label='LINUX  /  26.9.3     从笔记到一次真实操作 · CIFAR-10 训练准备', xalign=0)
-        subtitle.get_style_context().add_class('subtitle')
-        root.pack_start(subtitle, False, False, 0)
+        self.subtitle = Gtk.Label(xalign=0)
+        self.subtitle.get_style_context().add_class('subtitle')
+        root.pack_start(self.subtitle, False, False, 0)
         self.selector = Gtk.ComboBoxText()
         for lesson in LESSONS:
-            self.selector.append_text(lesson['title'])
+            self.selector.append_text(lesson['chapter'] + ' · ' + lesson['title'])
         self.selector.set_active(0)
         self.selector.connect('changed', self.select)
         root.pack_start(self.selector, False, False, 0)
@@ -71,7 +71,8 @@ class Lab(Gtk.Window):
         self.task = Gtk.Label(xalign=0, yalign=0, wrap=True, selectable=True)
         self.task.set_max_width_chars(42)
         task_scroll = Gtk.ScrolledWindow()
-        task_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        task_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.ALWAYS)
+        task_scroll.set_overlay_scrolling(False)
         task_scroll.add(self.task)
         left.pack_start(task_scroll, True, True, 0)
         hint = Gtk.Button(label='给我一点提示')
@@ -94,6 +95,7 @@ class Lab(Gtk.Window):
         right.pack_start(self.location, False, False, 0)
         self.entry = Gtk.Entry(placeholder_text='输入 ls、cd 或 pwd，按 Enter 执行')
         self.entry.connect('activate', self.run)
+        self.entry.connect('key-press-event', self.pager_key)
         right.pack_start(self.entry, False, False, 0)
         right.pack_start(Gtk.Label(label='观察与解释  ·  提交你从输出中得到的证据', xalign=0), False, False, 0)
         self.answer = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR)
@@ -133,8 +135,12 @@ class Lab(Gtk.Window):
     def load(self):
         lesson = LESSONS[self.index]
         completed = sum(v.get('passed', False) for v in self.progress.values())
+        self.subtitle.set_text('LINUX  /  ' + lesson['chapter'] + '     从笔记到真实操作 · CIFAR-10 实验实践')
         self.task.set_text(lesson['title'] + '\n\n' + lesson['brief'] + '\n\n你的任务\n\n' + lesson['steps'])
-        self.terminal.get_buffer().set_text('练习终端 · 真实 Linux 命令\n本课支持 ls / cd / pwd，一次一条；保留当前目录。\n临时数据只读，与个人文件及网络隔离。\n\n')
+        access = '临时 Home 可读写；原始数据只读' if self.session.writable else '临时数据只读'
+        self.terminal.get_buffer().set_text('练习终端 · 真实 Linux 命令\n支持 ' + ' / '.join(self.session.commands) + '\n' + access + '，与个人文件及网络隔离。\n\n')
+        self.entry.set_text('')
+        self.update_prompt()
         self.answer.get_buffer().set_text('')
         self.location.set_text(self.session.cwd + '  $')
         self.message(f'已完成 {completed} / {len(LESSONS)} 题。操作后写下观察，再提交评审。')
@@ -153,12 +159,19 @@ class Lab(Gtk.Window):
             style.add_class('passed')
         else:
             text = f'第 {self.index + 1} / {len(LESSONS)} 题 · 待通过 · 已完成 {completed} 题'
+        chapter = LESSONS[self.index]['chapter']
+        group = [item for item in LESSONS if item['chapter'] == chapter]
+        group_done = sum(bool(self.progress.get(item['id'], {}).get('passed')) for item in group)
+        if group_done == len(group) and completed < len(LESSONS):
+            text = f'✓ {chapter} 本组完成！{group_done} / {len(group)} 题已通过 · 全部题目 {completed} / {len(LESSONS)}'
         self.lesson_status.set_text(text)
         model = self.selector.get_model()
         for index, item in enumerate(LESSONS):
             mark = '✓ 已通过  ' if self.progress.get(item['id'], {}).get('passed') else ''
-            model[index][0] = mark + item['title']
+            model[index][0] = mark + item['chapter'] + ' · ' + item['title']
         self.next_button.set_label('进入下一题 →' if self.index < len(LESSONS) - 1 else '继续未完成的题目 →')
+        if self.index < len(LESSONS) - 1 and LESSONS[self.index + 1]['chapter'] != chapter:
+            self.next_button.set_label('进入 ' + LESSONS[self.index + 1]['chapter'] + ' 练习 →')
         self.next_button.set_visible(bool(passed) and completed < len(LESSONS))
 
     def advance(self, *_):
@@ -181,7 +194,7 @@ class Lab(Gtk.Window):
         if self.busy:
             return
         self.session.close()
-        self.session = Session()
+        self.session = Session(LESSONS[self.index])
         self.load()
 
     def set_busy(self, value):
@@ -208,6 +221,21 @@ class Lab(Gtk.Window):
             return False
         threading.Thread(target=worker, daemon=True).start()
 
+    def update_prompt(self):
+        self.entry.set_placeholder_text('Space 下一页 · q 退出分页' if self.session.pager else '输入本课命令，按 Enter 执行')
+        self.location.set_text('— more · Space 下一页 / q 退出 —' if self.session.pager else self.session.cwd + '  $')
+
+    def pager_key(self, entry, event):
+        if self.session.pager and not self.busy:
+            key = Gdk.keyval_name(event.keyval)
+            if key in ('space', 'q'):
+                self.append(self.session.page('q' if key == 'q' else ' '))
+                if not self.session.pager:
+                    self.append('[分页结束]\n')
+                self.update_prompt()
+            return True
+        return False
+
     def run(self, entry):
         command = entry.get_text().strip()
         if not command or self.busy:
@@ -216,7 +244,7 @@ class Lab(Gtk.Window):
         entry.set_text('')
         def done(record):
             self.append(record['output'] + '\n' + (f"[退出码 {record['exit_code']}]\n" if record['exit_code'] else ''))
-            self.location.set_text(self.session.cwd + '  $')
+            self.update_prompt()
             self.entry.grab_focus()
         self.background(lambda: self.session.run(command), done)
 
@@ -224,6 +252,9 @@ class Lab(Gtk.Window):
         buffer = self.answer.get_buffer()
         answer = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), False).strip()
         lesson = LESSONS[self.index]
+        if self.session.pager:
+            self.message('请先读完分页内容或按 q 退出，再提交答案。')
+            return
         local = checks(lesson, self.session)
         summary = '\n'.join(('✓ ' if ok else '○ ') + name for name, ok in local)
         if not answer:
@@ -279,7 +310,7 @@ class Lab(Gtk.Window):
 
     def source(self, *_):
         path = Path(__file__).resolve().parent.parent / LESSONS[self.index]['source']
-        dialog = Gtk.Dialog(title='原始笔记 · 26.9.3', transient_for=self)
+        dialog = Gtk.Dialog(title='原始笔记 · ' + LESSONS[self.index]['chapter'], transient_for=self)
         dialog.set_default_size(700, 650)
         dialog.add_button('关闭', Gtk.ResponseType.CLOSE)
         view = Gtk.TextView(editable=False, wrap_mode=Gtk.WrapMode.WORD_CHAR)

@@ -7,8 +7,30 @@
     "steps": "① 用 pwd 确认初始位置。\n② 查看项目目录内容，再进入项目并用 pwd 确认。\n③ 不离开项目，列出 /datasets/cifar10 的内容。\n④ 写下：数据目录有哪些划分？为何 /datasets/cifar10 开头的 / 不能省略？",
     "hint": "pwd 查看当前位置；cd 改变位置；ls 可以直接接绝对路径，查看目录不必进入它。",
     "rubric": "应识别 train 与 val；解释 / 从根目录起算，省略后从当前目录起算，项目目录下不存在 datasets/cifar10。",
-    "checks": [["pwd", "/home/student\n", "确认初始 Home 目录"], ["pwd", "/home/student/projects/cifar10\n", "进入并确认训练项目位置"], ["ls", "train", "查看训练数据划分"], ["ls", "val", "查看验证数据划分"]],
-    "cwd": "/home/student/projects/cifar10"
+    "checks": [
+      [
+        "pwd",
+        "/home/student\n",
+        "确认初始 Home 目录"
+      ],
+      [
+        "pwd",
+        "/home/student/projects/cifar10\n",
+        "进入并确认训练项目位置"
+      ],
+      [
+        "ls",
+        "train",
+        "查看训练数据划分"
+      ],
+      [
+        "ls",
+        "val",
+        "查看验证数据划分"
+      ]
+    ],
+    "cwd": "/home/student/projects/cifar10",
+    "chapter": "26.9.3"
   },
   {
     "id": "linux-0903-hidden",
@@ -18,8 +40,25 @@
     "steps": "① 在项目目录先执行普通 ls，再执行包含隐藏项的列表。\n② 找出隐藏的环境文件与实验目录。\n③ 写下两个名称，解释为什么第一次没看见，以及这是否意味着文件被删除。\n无需打开文件，也无需安装任何机器学习库。",
     "hint": "Linux 文件名以 . 开头时默认隐藏；ls 的 -a 选项会显示它们。注意 . 和 .. 本身不是实验配置。",
     "rubric": "必须指出 .env 与 .experiment；点开头导致普通 ls 隐藏，不代表丢失或删除。不能凭名称断言文件内容或环境一定可复现。",
-    "checks": [["plain_ls", "train.py", "先观察普通目录列表"], ["ls", ".env", "找到隐藏环境文件"], ["ls", ".experiment", "找到隐藏实验目录"]],
-    "cwd": null
+    "checks": [
+      [
+        "plain_ls",
+        "train.py",
+        "先观察普通目录列表"
+      ],
+      [
+        "ls",
+        ".env",
+        "找到隐藏环境文件"
+      ],
+      [
+        "ls",
+        ".experiment",
+        "找到隐藏实验目录"
+      ]
+    ],
+    "cwd": null,
+    "chapter": "26.9.3"
   },
   {
     "id": "linux-0903-checkpoint",
@@ -29,7 +68,186 @@
     "steps": "① 用详细且人类易读的列表检查项目的 checkpoints 目录。\n② 写下零字节文件名，以及另外两个文件的大致大小。\n③ 解释：哪个文件显然不能作为有效权重？仅凭大小能否判断其余文件一定可加载，或哪个模型准确率更高？\n④ 最后用不带参数的 cd 返回 Home，并用 pwd 确认。",
     "hint": "ls -l 显示大小等元数据；再加 -h 让大小更易读。cd 不带参数返回 Home。",
     "rubric": "epoch-03.pt 是 0 字节，不能作为有效权重；epoch-01.pt 为 12 MiB、epoch-02.pt 为 24 MiB。非零不保证可加载，大小不能判定准确率，需要加载验证、评估指标等证据。",
-    "checks": [["long_human", "epoch-03.pt", "用详细、人类易读列表检查权重"], ["pwd", "/home/student\n", "确认返回 Home"]],
-    "cwd": "/home/student"
+    "checks": [
+      [
+        "long_human",
+        "epoch-03.pt",
+        "用详细、人类易读列表检查权重"
+      ],
+      [
+        "pwd",
+        "/home/student\n",
+        "确认返回 Home"
+      ]
+    ],
+    "cwd": "/home/student",
+    "chapter": "26.9.3"
+  },
+  {
+    "id": "linux-0904-workspace",
+    "title": "01  为一次基线训练准备输出目录",
+    "brief": "你准备运行 CIFAR-10 的 baseline 实验。初始位置是 /home/student/projects/cifar10，实验输出约定放在项目内 runs/baseline，而不是原始数据目录。只搭建目录和空日志，不启动训练。",
+    "steps": "① 用 pwd 确认项目位置。先尝试 mkdir runs/baseline/checkpoints，观察缺少父目录时的错误。\n② 修正命令，创建 runs/baseline/checkpoints 和 runs/baseline/logs。\n③ 用 touch 在 logs 中创建空的 train.log，并用 ls -l 查看它。\n④ 从项目进入 ./runs/baseline/logs，用 cd .. 返回 baseline，并用 pwd 确认。\n⑤ 写下：最初为什么失败？-p 解决什么问题？空 train.log 是否证明训练已经运行？",
+    "hint": "mkdir -p 可以连同不存在的父目录一起创建。touch 创建空文件；./ 从当前目录起算，.. 指向上一级。",
+    "rubric": "指出最初 runs 等父目录不存在；-p 创建缺失的父目录。空 train.log 仅是占位文件，不能证明训练已运行或成功。不要求运行训练。",
+    "cwd": "/home/student/projects/cifar10/runs/baseline",
+    "checks": [
+      [
+        "pwd",
+        "/home/student/projects/cifar10\n",
+        "确认项目位置"
+      ],
+      [
+        "ls",
+        "train.log",
+        "查看日志文件"
+      ]
+    ],
+    "state_checks": [
+      [
+        "dir",
+        "runs/baseline/checkpoints",
+        "检查点目录已建立"
+      ],
+      [
+        "dir",
+        "runs/baseline/logs",
+        "日志目录已建立"
+      ],
+      [
+        "empty",
+        "runs/baseline/logs/train.log",
+        "创建空日志而非目录"
+      ]
+    ],
+    "chapter": "26.9.4",
+    "source": "Linux系统学习/26.9.4.md",
+    "environment": "file-ops",
+    "start_cwd": "/home/student/projects/cifar10"
+  },
+  {
+    "id": "linux-0904-config",
+    "title": "02  保存基线，整理本次实验配置",
+    "brief": "本题是新的独立环境。你位于 /home/student/projects/cifar10，templates/baseline 中有 config.yaml 和 labels.txt。需要保留原始模板，并给本次实验准备一个完整副本。配置只是用于练习文件管理的文本，无需理解 YAML 语法。",
+    "steps": "① 用 cat 查看 templates/baseline/config.yaml，找到 seed 和 batch_size。\n② 将整个 baseline 目录复制到项目内新目录 experiment（包含其中全部文件）。\n③ 将副本中的 config.yaml 重命名为 train.yaml，再用 cat 核对内容。模板中的 config.yaml 必须保留，labels.txt 也必须复制完整。\n④ 用 cd ~ 回到 Home，再用 ~/projects/cifar10 路径回到项目，pwd 确认。\n⑤ 写下 seed、batch_size 的值，并说明为什么准备新实验时先复制模板，再重命名副本。",
+    "hint": "cp 复制目录需要 -r；目标 experiment 起初不存在。mv 在目标文件不存在时可重命名。~ 是 /home/student，不是系统根目录。",
+    "rubric": "seed=42、batch_size=64。复制保留模板以供后续实验复用；只重命名副本不会改动原模板。无需评价参数优劣，也不要求训练。",
+    "cwd": "/home/student/projects/cifar10",
+    "checks": [
+      [
+        "cat",
+        "seed: 42",
+        "阅读配置内容"
+      ],
+      [
+        "cat",
+        "batch_size: 64",
+        "确认批大小"
+      ],
+      [
+        "pwd",
+        "/home/student/projects/cifar10\n",
+        "确认返回项目"
+      ]
+    ],
+    "state_checks": [
+      [
+        "same",
+        "experiment/train.yaml",
+        "重命名后的配置内容与模板一致",
+        "templates/baseline/config.yaml"
+      ],
+      [
+        "same",
+        "experiment/labels.txt",
+        "标签文件完整复制",
+        "templates/baseline/labels.txt"
+      ],
+      [
+        "absent",
+        "experiment/config.yaml",
+        "副本旧配置名已移除"
+      ],
+      [
+        "text",
+        "templates/baseline/config.yaml",
+        "原始配置模板保持不变",
+        "seed: 42\nbatch_size: 64\n"
+      ],
+      [
+        "text",
+        "templates/baseline/labels.txt",
+        "原始标签模板保持不变",
+        "airplane\nautomobile\nbird\n"
+      ]
+    ],
+    "chapter": "26.9.4",
+    "source": "Linux系统学习/26.9.4.md",
+    "environment": "file-ops",
+    "start_cwd": "/home/student/projects/cifar10"
+  },
+  {
+    "id": "linux-0904-cleanup",
+    "title": "03  先核对清单，再清理临时输出",
+    "brief": "本题是新的独立环境。一次训练已结束，项目 runs/review 中混有临时文件和需要保留的结果。先读完 cleanup-plan.txt，再操作；不要凭文件名猜测。",
+    "steps": "① 在项目内用 more runs/review/cleanup-plan.txt 分页阅读清单；在应用输入框按 Space 翻页，q 退出。读到最后一页确认保留项。\n② 进入 runs/review，用 ls tmp* 预览将被清理的项目。\n③ 删除两个 tmp_ 开头的临时文件，并递归删除 scratch 目录。保留其余文件。\n④ 用 ls -l 查看清理结果。\n⑤ 写下清单中的保留文件名，并解释为什么不能用 rm -r * 清理整个目录。",
+    "hint": "先阅读清单再删除。tmp* 只匹配以 tmp 开头的名称；rm 删除文件，rm -r 删除目录及内容。可一次删除匹配项，也可明确列出两个文件。",
+    "rubric": "必须保留 best.pt、metrics.csv 和 cleanup-plan.txt。rm -r * 会连同应保留的权重、指标和清单一起删除；通配符按名字匹配，不理解文件用途。只需据清单解释，不要求讨论模型质量。",
+    "cwd": "/home/student/projects/cifar10/runs/review",
+    "checks": [
+      [
+        "more",
+        "KEEP: best.pt, metrics.csv, cleanup-plan.txt",
+        "分页读到清单保留项"
+      ],
+      [
+        "ls",
+        "tmp_batch.cache",
+        "预览临时文件"
+      ],
+      [
+        "ls",
+        "best.pt",
+        "查看保留权重"
+      ]
+    ],
+    "state_checks": [
+      [
+        "absent",
+        "runs/review/tmp_batch.cache",
+        "删除临时批次缓存"
+      ],
+      [
+        "absent",
+        "runs/review/tmp_worker.log",
+        "删除临时工作日志"
+      ],
+      [
+        "absent",
+        "runs/review/scratch",
+        "递归删除临时目录"
+      ],
+      [
+        "text",
+        "runs/review/best.pt",
+        "保留权重占位文件内容",
+        "checkpoint-placeholder\n"
+      ],
+      [
+        "text",
+        "runs/review/metrics.csv",
+        "保留评估指标内容",
+        "epoch,accuracy\n3,0.72\n"
+      ],
+      [
+        "fixture",
+        "runs/review/cleanup-plan.txt",
+        "保留原始清理清单"
+      ]
+    ],
+    "chapter": "26.9.4",
+    "source": "Linux系统学习/26.9.4.md",
+    "environment": "file-ops",
+    "start_cwd": "/home/student/projects/cifar10"
   }
 ]
