@@ -41,7 +41,7 @@ class TorchPanel(Gtk.Box):
         self.pages = Gtk.Notebook()
         self.pack_start(self.pages, True, True, 0)
         teaching = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        self.pages.append_page(teaching, Gtk.Label(label='① 先学 · 讲解与实验'))
+        self.add_page(teaching, '① 先学 · 讲解与实验')
         self.teaching_text, scroll = editor(180)
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.ALWAYS)
         self.teaching_text.set_editable(False)
@@ -70,7 +70,7 @@ class TorchPanel(Gtk.Box):
         enter.connect('clicked', lambda *_: self.pages.set_current_page(1))
         teaching.pack_start(enter, False, False, 0)
         practice = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        self.pages.append_page(practice, Gtk.Label(label='② 练习 · 预测、实现与解释'))
+        self.add_page(practice, '② 练习 · 预测、实现与解释')
         practice.pack_start(Gtk.Label(label='① 运行前预测 · 写下形状或数值，不必先写长篇解释', xalign=0), False, False, 0)
         self.prediction, scroll = editor(62)
         practice.pack_start(scroll, False, False, 0)
@@ -98,6 +98,16 @@ class TorchPanel(Gtk.Box):
         practice.pack_start(actions, False, False, 0)
         for view in [self.code, self.prediction, self.explanation, self.demo_code]:
             view.get_buffer().connect('changed', self.changed)
+
+    def add_page(self, content, title):
+        # The page may exceed the display height; its contents must not set
+        # the minimum height of the entire desktop window.
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_min_content_height(200)
+        scroll.set_overlay_scrolling(False)
+        scroll.add(content)
+        self.pages.append_page(scroll, Gtk.Label(label=title))
 
     def draft_path(self):
         return self.state / 'pytorch-drafts' / (self.lesson['id'] + '.json')

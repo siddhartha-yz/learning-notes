@@ -17,6 +17,9 @@ class Lab(Gtk.Window):
         super().__init__(title='Learning Notes · 实践工坊')
         self.set_default_size(1120, 800)
         self.set_position(Gtk.WindowPosition.CENTER)
+        self.is_fullscreen = False
+        self.connect('key-press-event', self.window_key)
+        self.connect('window-state-event', self.window_state)
         self.session = Session()
         self.index = 0
         self.busy = False
@@ -28,11 +31,19 @@ class Lab(Gtk.Window):
         css.load_from_path(str(Path(__file__).with_name('night.css')))
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin=20)
-        self.add(root)
+        # Keep every control reachable even on smaller or scaled displays.
+        self.window_scroll = Gtk.ScrolledWindow()
+        self.window_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        self.window_scroll.set_overlay_scrolling(False)
+        self.window_scroll.add(root)
+        self.add(self.window_scroll)
         top = Gtk.Box(spacing=12)
         title = Gtk.Label(label='>_ 实践工坊', xalign=0)
         title.get_style_context().add_class('title')
         top.pack_start(title, True, True, 0)
+        self.fullscreen_button = Gtk.Button(label='全屏 · F11')
+        self.fullscreen_button.connect('clicked', self.toggle_fullscreen)
+        top.pack_start(self.fullscreen_button, False, False, 0)
         settings = Gtk.Button(label='API 设置')
         settings.connect('clicked', self.settings)
         top.pack_start(settings, False, False, 0)
@@ -106,6 +117,7 @@ class Lab(Gtk.Window):
         left.pack_start(source, False, False, 0)
         right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.content_stack = Gtk.Stack()
+        self.content_stack.set_homogeneous(False)
         self.content_stack.add_named(right, 'linux')
         self.torch_panel = TorchPanel(self, STATE)
         self.content_stack.add_named(self.torch_panel, 'pytorch')
@@ -149,6 +161,26 @@ class Lab(Gtk.Window):
         feedback_scroll.add(self.feedback)
         root.pack_start(feedback_scroll, False, False, 0)
         self.load()
+
+    def toggle_fullscreen(self, *_):
+        if self.is_fullscreen:
+            self.unfullscreen()
+        else:
+            self.fullscreen()
+
+    def window_state(self, _window, event):
+        self.is_fullscreen = bool(event.new_window_state & Gdk.WindowState.FULLSCREEN)
+        self.fullscreen_button.set_label('退出全屏 · Esc' if self.is_fullscreen else '全屏 · F11')
+        return False
+
+    def window_key(self, _window, event):
+        if event.keyval == Gdk.KEY_F11:
+            self.toggle_fullscreen()
+            return True
+        if event.keyval == Gdk.KEY_Escape and self.is_fullscreen:
+            self.unfullscreen()
+            return True
+        return False
 
     def message(self, text):
         self.feedback.set_text(text)
