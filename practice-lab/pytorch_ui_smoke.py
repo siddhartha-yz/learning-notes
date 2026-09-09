@@ -28,6 +28,19 @@ def main():
             panel.run_button.emit('clicked')
             assert not window.busy
             assert not list(core.ATTEMPTS.rglob('*.json'))
+            assert panel.pages.get_current_page() == 0
+            assert 'torch.tensor' in torch_panel.text(panel.teaching_text)
+            panel.demo_code.get_buffer().set_text('print("demo edited")')
+            panel.demo_button.emit('clicked'); settle(window)
+            assert 'demo edited' in torch_panel.text(panel.demo_output)
+            assert not window.progress.get(panel.lesson['id'], {}).get('passed')
+            assert panel.result is None
+            assert reviewer.call_count == 0
+            panel.load(panel.lesson)
+            assert torch_panel.text(panel.demo_code) == 'print("demo edited")'
+            panel.restore_demo.emit('clicked')
+            assert 'import torch' in torch_panel.text(panel.demo_code)
+            panel.pages.set_current_page(1)
             for index, lesson in [(i, l) for i, l in enumerate(app.LESSONS) if l['track'] == 'PyTorch']:
                 window.select_lesson(index)
                 panel.prediction.get_buffer().set_text('UI 测试预测；非学生作答。')
@@ -57,11 +70,14 @@ def main():
             assert panel.hint_level == 1
             assert panel.result is None
             logs = [core.read_json(p, {}) for p in core.ATTEMPTS.rglob('*.json')]
+            demos = [l for l in logs if l['kind'] == 'pytorch_tutorial_run']
+            assert len(demos) == 1 and demos[0]['passed'] is False
+            assert demos[0]['local_result']['passed'] is True
             assert len([l for l in logs if l['kind'] == 'pytorch_run']) == 6
             assert len([l for l in logs if l['kind'] == 'pytorch_submission']) == 7
             assert all('code' in l and 'prediction' in l for l in logs)
             assert any(l.get('review', {}).get('passed') is False for l in logs if l.get('review'))
-            print('PyTorch GTK passed: 6 real exercises, explicit hints, drafts, stale-code guard, mock review retry, 13 logs, track switching')
+            print('PyTorch GTK passed: 6 real exercises, explicit hints, drafts, stale-code guard, mock review retry, 14 logs including ungraded tutorial, default teaching, demo draft restore, track switching')
         finally:
             window.session.close(); window.destroy()
 

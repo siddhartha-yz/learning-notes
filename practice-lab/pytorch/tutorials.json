@@ -1,0 +1,38 @@
+{
+  "torch-batch": {
+    "title": "从 Python 列表到模型输入",
+    "lesson": "先认识三件事\nTensor（张量）是 PyTorch 保存和计算数值的对象。这里先把它理解为有明确形状和数值类型的数组。Python 列表能装数据，模型运算通常接收 Tensor。\n\nshape 是形状：每个轴上有多少个位置。[2, 3] 表示 2 行、3 列，不是数值 2 和 3。轴从 0 编号：axis 0 是行，axis 1 是列。在模型输入中，我们约定每行是一条样本，每列是一种特征。\n\ndtype 是每个元素的数值类型。连续特征需要小数，常用 torch.float32；类别编号是整数，常用 torch.int64（也叫 torch.long）。这两个名字没有引号，它们是 torch 提供的类型对象。\n\n逐行读下面的例子\n① import torch：导入库，之后用 torch.名字 调用它提供的功能。\n② measurements：两条传感器样本，每条有三个特征，仍是普通 Python 列表。\n③ torch.tensor(数据, dtype=类型)：根据数据创建 Tensor。dtype= 是具名参数，明确指定类型；不写 device 时本课程默认环境创建 CPU 张量。\n④ x.shape / x.dtype：读取属性，不加括号；tuple(x.shape) 把形状显示成普通元组。print(...) 把结果显示在下方。\n⑤ ids：给类别编号创建整数张量。一层列表的形状只有一个轴；长度是样本数。\n\n从例子迁移到本题\n本题要把调用者传入的 features 和 labels 转换成张量，不能把示例里的数字写死。Python 的 return x, y 会返回两个对象组成的元组，调用方可用 X, y = build_batch(...) 接住。函数骨架里的 raise NotImplementedError 是待实现标记，写好函数后需要替换它。",
+    "code": "import torch\n\nmeasurements = [[0.5, 2.0, 7.0], [1.5, 4.0, 8.0]]\nx = torch.tensor(measurements, dtype=torch.float32)\nids = torch.tensor([2, 0], dtype=torch.int64)\nprint(x)\nprint(\"特征形状:\", tuple(x.shape), \"类型:\", x.dtype)\nprint(\"标签形状:\", tuple(ids.shape), \"类型:\", ids.dtype)\nprint(\"设备:\", x.device)\n",
+    "observe": "先运行：特征形状应是 (2, 3)，标签形状是 (2,)。元组中的逗号表示只有一个轴。再把 measurements 改成 [[0.5, 2.0, 7.0]]，ids 改成 [2]，运行观察 (1, 3) 与 (1,)：只有一个样本也没有丢掉样本轴。对比 [0.5, 2.0, 7.0] 与 [[0.5, 2.0, 7.0]] 的形状。"
+  },
+  "torch-flatten": {
+    "title": "形状改变，样本边界不能改变",
+    "lesson": "为什么图像有四个轴\n图像批次常写成 [B,C,H,W]：B 是样本数，C 是通道数，H/W 是高/宽。形状不是装饰：线性分类器需要每行一张图，把每张图的 C×H×W 个值排成一行。\n\n逐行读例子\n① torch.arange(12) 生成 0 到 11 的整数张量，类似 range 的连续编号，可帮助观察元素顺序。\n② .reshape(2, 1, 2, 3) 把 12 个值排列成两张单通道、2 行 3 列的图。新旧元素总数必须相等。reshape 返回结果，要用变量接住。\n③ images.shape[0] 取形状元组的第 0 项，即样本数。\n④ images.flatten(start_dim=1) 保留轴 0，把从轴 1 开始的轴合并。不是把整个批次压成一条向量。\n⑤ .reshape(images.shape[0], -1) 也是一种写法；-1 表示让 PyTorch 根据总元素数推算该轴长度，只能有一个待推算轴。\n\n内存与形状的区别\ntranspose 会交换轴，得到的张量可能不是连续存储。reshape 或 flatten 必要时会复制数据，也可能共享存储；本题只读取输入，因此不用改变输入。不要依赖 view 一定能处理非连续输入。\n\n迁移目标\n本题尺寸由输入决定。不要固定写 2、6，也不要默认样本数大于 1。",
+    "code": "import torch\n\nimages = torch.arange(12).reshape(2, 1, 2, 3)\nrows = images.flatten(start_dim=1)\nprint(\"图像:\", images)\nprint(\"每行一张图:\", rows)\nprint(\"前后形状:\", tuple(images.shape), tuple(rows.shape))\nprint(\"另一种写法:\", images.reshape(images.shape[0], -1))\n",
+    "observe": "输出应有两行，第一行 0…5，第二行 6…11。把 start_dim=1 改成 0 再运行：数值还在，但形状变成 (12,)，样本边界消失。恢复后把初始形状改成 (1, 2, 2, 3)，观察结果仍保留一个样本轴。"
+  },
+  "torch-center": {
+    "title": "dim 决定“沿谁统计”，广播决定“怎样相减”",
+    "lesson": "数据集的每列是一个特征\n如果第一列是长度、第二列是质量，应分别计算各特征在样本之间的均值，不能把不同物理意义的列混着平均。\n\n逐行读例子\n① 用浮点数建立 [3,2] 张量：3 个样本、2 个特征。整数张量不能直接用 mean 计算这里的均值，可在 tensor 中指定 dtype=torch.float32。\n② x.mean(dim=0)：沿样本轴聚合，该轴被消去，留下每个特征的平均值，形状 [2]。dim=1 则是每个样本内部平均，形状 [3]，语义不同。\n③ x - mean：减号对 Tensor 做逐元素计算。PyTorch 从最右边对齐形状：[3,2] 与 [2] 对齐时，均值像在每行重复一样参与相减，这叫广播，并不需要你手工复制三份。\n④ .mean(dim=0, keepdim=True) 保留被聚合轴为长度 1，输出 [1,2]，也能广播；本题返回均值要求 [D]，需注意契约。\n\n广播规则\n从右向左，对应尺寸相同或有一边是 1 才可广播，缺少的前导轴按 1 看待。广播只检查尺寸，不检查语义，轴选错但尺寸碰巧一样也可能不报错。\n\n迁移目标\n返回相减后的新张量与均值，不使用 x -= mean，这会原地改动调用者的数据。",
+    "code": "import torch\n\nx = torch.tensor([[2., 10.], [4., 20.], [6., 30.]])\nmean = x.mean(dim=0)\ncentered = x - mean\nprint(\"每个特征的均值:\", mean, tuple(mean.shape))\nprint(\"中心化后:\", centered)\nprint(\"中心化后的列均值:\", centered.mean(dim=0))\nprint(\"保留统计轴:\", x.mean(dim=0, keepdim=True))\n",
+    "observe": "应得到均值 [4,20]，中心化后各列均值为 0。把 mean 的 dim 改成 1，会得到形状 [3]，相减时与末轴的 2 不匹配而报错。这个错误可以帮助识别“按样本统计”和“按特征统计”的区别。"
+  },
+  "torch-probs": {
+    "title": "分类器分数怎样成为每个样本的概率",
+    "lesson": "logits 是未归一化分数\n一个样本对各类别有一组分数；分数可为负，也不必加起来等于 1。softmax 把分数 z 转换为 exp(z_i) / Σ exp(z_j)，每组概率非负且总和为 1。它不改变类别顺序。\n\n逐行读例子\n① scores 的形状 [2,3]：两个样本，每个有三个候选类别。\n② torch.softmax(scores, dim=1)：对每行的类别轴归一化，输出仍为 [2,3]。dim 指定分母对哪个轴求和；dim=0 会让不同样本互相竞争，是另一种运算。\n③ probs.sum(dim=1)：沿类别轴相加，得到每个样本概率和，形状 [2]。\n④ scores + 1000：标量广播到每个元素。给同组分数加同一常数不改变 softmax，因为分子分母的共同因子会抵消。\n\n为何不用最直接的指数除法\n大正数直接取 exp 会溢出。torch.softmax 内部使用数值稳定的计算；也可以先减去组内最大值再计算，但这题允许直接调用 softmax，不要求重写它。\n\n迁移目标\n你需要选择有正确模型含义的 dim，并保留输入 dtype 和形状。",
+    "code": "import torch\n\nscores = torch.tensor([[0., 0., 0.], [1., 2., 3.]])\nprobs = torch.softmax(scores, dim=1)\nprint(\"各类概率:\", probs)\nprint(\"每个样本概率和:\", probs.sum(dim=1))\nprint(\"分数平移后:\", torch.softmax(scores + 1000, dim=1))\n",
+    "observe": "第一行应都是约 0.3333，第二行第三类概率最大；两行的概率和都是 1。把 softmax 的 dim 改成 0：观察每行的和不再是 1，而每列的和是 1。最后恢复 dim=1。"
+  },
+  "torch-select": {
+    "title": "用成对坐标取出真实类别的概率",
+    "lesson": "分类训练关心“这个样本的正确类别”\n概率矩阵每行是一个样本。类别标签不是概率值，而是该行中应该取的列编号。第 0 行可能取第 2 列，第 1 行可能取第 0 列。\n\n逐行读例子\n① table[0, 2]：取第 0 行、第 2 列的一个数。索引从 0 开始。\n② labels 是每个样本的目标列号，dtype=torch.int64 用于整数索引。\n③ torch.arange(table.shape[0])：产生 [0,1,…,B-1]，这是每个样本自己的行号。\n④ table[rows, labels]：两个同形状整数索引按位置配对，依次取 (rows[i], labels[i])，不是所有行列组合。两个长度 [B] 的索引得到 [B] 个数。\n⑤ table[:, labels] 中冒号表示“所有行”，结果会为每一行选取 labels 指定的所有列，通常是 [B,B]，与成对索引不同。\n\n迁移目标\n只取出每个样本自己的真实类别概率；B=1 时也应返回长度为 1 的向量，不要用 .item() 变成 Python 数字。",
+    "code": "import torch\n\ntable = torch.tensor([[0.2, 0.3, 0.5], [0.7, 0.1, 0.2]])\nlabels = torch.tensor([2, 0], dtype=torch.int64)\nrows = torch.arange(table.shape[0])\nprint(\"行号:\", rows, \"列号:\", labels)\nprint(\"成对取值:\", table[rows, labels])\nprint(\"整列选择:\", table[:, labels])\n",
+    "observe": "成对取值应是 [0.5,0.7]，整列选择是两行两列。把 labels 改成 [1,1]，应各自取出本行的第 1 列，而不是重复某一行的概率。"
+  },
+  "torch-mask": {
+    "title": "padding 不是真实 token：只对有效位置求平均",
+    "lesson": "序列为什么需要 mask\n一个批次里的句子长短不同，为了排成 [B,T] 矩阵会补 padding。valid 是同形状的布尔张量：True 表示真实 token，False 表示填充。本题平均的是所有有效 token 的损失，不是“每条句子先平均，再平均句子”。\n\n逐行读例子\n① torch.tensor(..., dtype=torch.bool) 创建真/假张量；Python 的 True/False 首字母大写。\n② losses[valid]：布尔索引，只抽出 True 对应的值，按原顺序得到一维向量；它不再保留句子轴。本题正需要汇总所有有效 token。\n③ selected.mean()：没有 dim 就对所有元素求平均，得到标量 Tensor，shape 是空元组 ()，不是长度 1 的 (1,)。\n④ valid.sum()：数 True 的个数，可用于核对分母。selected.sum() / valid.sum() 与这里的 mean 等价。\n\n权重的语义\n长句有更多真实 token，在 token 平均中自然贡献更多项。按句平均则让每条句子权重相同，它回答的是另一个问题。本题保证至少一个有效 token，所以不必为全空掩码设计策略。\n\n迁移目标\n返回标量 Tensor，保留浮点 dtype，不调用 .item() 转为 Python 数字；不修改原始损失或掩码。",
+    "code": "import torch\n\nlosses = torch.tensor([[2., 4., 6.], [12., 90., 90.]])\nvalid = torch.tensor([[True, True, True], [True, False, False]], dtype=torch.bool)\nselected = losses[valid]\nprint(\"有效损失:\", selected)\nprint(\"有效 token 数:\", valid.sum())\nprint(\"token 平均:\", selected.mean(), \"形状:\", tuple(selected.mean().shape))\nprint(\"按句平均再平均:\", (losses[0].mean() + losses[1, 0]) / 2)\n",
+    "observe": "有效损失 [2,4,6,12]，token 平均是 6，按句平均是 8。把两个 padding 的 90 改成 9000，token 平均应不变。再将第二行第 1 个 padding 标为 True，观察有效数量和均值一起变化。"
+  }
+}

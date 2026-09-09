@@ -4,7 +4,7 @@
 
 ## PyTorch 实践课程
 
-新增独立的 PyTorch 课程入口，按能力阶段组织。目前实现张量基础六题，支持多行代码编辑、预测、真实 PyTorch 测试、Agent 解释评审和草稿恢复。API 用法仅主动请求提示时展示。见 [课程说明](./pytorch/README.md) 与 [仓库分析和完整进阶路线](./pytorch/ROADMAP.md)。
+新增独立的 PyTorch 课程入口，按能力阶段组织。目前实现张量基础六题，支持多行代码编辑、预测、真实 PyTorch 测试、Agent 解释评审和草稿恢复。默认先展示零基础教学、逐行语法说明和可编辑运行的例子，再进入独立练习；额外解题提示按需展示。见 [课程说明](./pytorch/README.md) 与 [仓库分析和完整进阶路线](./pytorch/ROADMAP.md)。
 
 ## Linux 题库
 

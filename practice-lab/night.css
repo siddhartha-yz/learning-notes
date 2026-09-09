@@ -29,3 +29,7 @@ menu, menuitem, popover { background: #18212b; color: #d5dee8; }
 menuitem:hover { background: #294337; }
 checkbutton check { background: #111923; border: 1px solid #536b80; }
 checkbutton check:checked { background: #286446; color: #c9f5ce; }
+
+notebook > header { background: #101820; border-color: #304354; }
+notebook > header tab { padding: 10px 14px; color: #a6b7c5; }
+notebook > header tab:checked { background: #203b31; color: #87e89d; }

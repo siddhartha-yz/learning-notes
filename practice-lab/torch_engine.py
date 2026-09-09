@@ -11,7 +11,7 @@ from core import save_json
 RUNTIME = Path(os.environ.get('LEARNING_LAB_TORCH_RUNTIME', Path.home() / '.local/share/learning-notes-lab/torch-runtime'))
 
 
-def run_code(lesson_id, source):
+def run_code(lesson_id, source, tutorial=False):
     if not (RUNTIME / 'bin/python').exists():
         raise ValueError('PyTorch 环境未安装，请运行 practice-lab/setup-torch.sh。')
     if len(source) > 30000:
@@ -32,7 +32,7 @@ def run_code(lesson_id, source):
         args += ['--ro-bind', str(RUNTIME), '/opt/runtime', '--ro-bind', str(submission), '/submission',
                  '--ro-bind', str(Path(__file__).with_name('pytorch').resolve()), '/grader',
                  '--bind', str(work), '/work', '--tmpfs', '/tmp', '--proc', '/proc', '--dev', '/dev',
-                 '--chdir', '/work', '/opt/runtime/bin/python', '-I', '/grader/grader.py', lesson_id]
+                 '--chdir', '/work', '/opt/runtime/bin/python', '-I', '/grader/grader.py', '--tutorial' if tutorial else lesson_id]
         start = time.monotonic()
         with tempfile.TemporaryFile() as output:
             proc = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)

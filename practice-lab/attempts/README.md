@@ -9,3 +9,5 @@
 `legacy-progress-2026-09-08.json` 是从旧版本地进度导入的历史摘要，包含三题的通过结果与评语；旧版没有留下原始答案和操作历史，不能将摘要视为完整日志。模型评语也是待复核的数据，不等于真实执行记录。
 
 PyTorch 记录使用 schema_version=2，区分 `pytorch_run`（真实本地测试）和 `pytorch_submission`（提交 Agent）。包含代码、运行前预测、解释、提示层级和测试结果。`tested` 仅表示完成本地测试，不能等同于 Agent 评审通过。
+
+PyTorch 教学实验使用 `kind=pytorch_tutorial_run`，记录教学快照、实际运行代码与输出；`local_result.passed` 仅表示代码执行成功，顶层 `passed=false`，不计入题目通过。它与练习测试、Agent 正式评审分开统计。

@@ -1,5 +1,8 @@
 """PyTorch learning surface embedded in the existing GTK desktop application."""
 from pathlib import Path
+import json
+
+TUTORIALS = json.loads((Path(__file__).parent / "pytorch/tutorials.json").read_text())
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk
@@ -35,22 +38,55 @@ class TorchPanel(Gtk.Box):
         self.last_code = None
         self.result = None
         self.last_prediction = None
-        self.pack_start(Gtk.Label(label='① 运行前预测 · 写下形状或数值，不必先写长篇解释', xalign=0), False, False, 0)
+        self.pages = Gtk.Notebook()
+        self.pack_start(self.pages, True, True, 0)
+        teaching = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.pages.append_page(teaching, Gtk.Label(label='① 先学 · 讲解与实验'))
+        self.teaching_text, scroll = editor(180)
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.ALWAYS)
+        self.teaching_text.set_editable(False)
+        teaching.pack_start(scroll, True, True, 0)
+        teaching.pack_start(Gtk.Label(label='可修改的例子 · 直接运行即可，无需先答题', xalign=0), False, False, 0)
+        self.demo_code, scroll = editor(160, True)
+        self.demo_code.connect('key-press-event', self.indent)
+        teaching.pack_start(scroll, True, True, 0)
+        actions = Gtk.Box(spacing=8)
+        self.demo_button = Gtk.Button(label='运行教学例子 · 本地执行')
+        self.demo_button.connect('clicked', self.run_demo)
+        self.restore_demo = Gtk.Button(label='恢复教学例子')
+        self.restore_demo.connect('clicked', lambda *_: self.demo_code.get_buffer().set_text(TUTORIALS[self.lesson['id']]['code']))
+        actions.pack_start(self.demo_button, True, True, 0)
+        actions.pack_start(self.restore_demo, False, False, 0)
+        teaching.pack_start(actions, False, False, 0)
+        self.demo_output, scroll = editor(75, True)
+        self.demo_output.set_editable(False)
+        teaching.pack_start(scroll, False, False, 0)
+        self.observation, scroll = editor(80)
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.ALWAYS)
+        self.observation.set_editable(False)
+        teaching.pack_start(scroll, False, False, 0)
+        enter = Gtk.Button(label='理解例子后 → 进入独立练习（随时可返回讲解）')
+        enter.get_style_context().add_class('primary')
+        enter.connect('clicked', lambda *_: self.pages.set_current_page(1))
+        teaching.pack_start(enter, False, False, 0)
+        practice = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.pages.append_page(practice, Gtk.Label(label='② 练习 · 预测、实现与解释'))
+        practice.pack_start(Gtk.Label(label='① 运行前预测 · 写下形状或数值，不必先写长篇解释', xalign=0), False, False, 0)
         self.prediction, scroll = editor(62)
-        self.pack_start(scroll, False, False, 0)
-        self.pack_start(Gtk.Label(label='② 独立实现 · Python / PyTorch · Tab 缩进，Enter 延续缩进', xalign=0), False, False, 0)
+        practice.pack_start(scroll, False, False, 0)
+        practice.pack_start(Gtk.Label(label='② 独立实现 · Python / PyTorch · Tab 缩进，Enter 延续缩进', xalign=0), False, False, 0)
         self.code, scroll = editor(190, True)
-        self.pack_start(scroll, True, True, 0)
+        practice.pack_start(scroll, True, True, 0)
         self.code.connect('key-press-event', self.indent)
         self.run_button = Gtk.Button(label='运行测试 · 不调用 Agent')
         self.run_button.connect('clicked', self.run)
-        self.pack_start(self.run_button, False, False, 0)
+        practice.pack_start(self.run_button, False, False, 0)
         self.results, scroll = editor(90, True)
         self.results.set_editable(False)
-        self.pack_start(scroll, False, False, 0)
-        self.pack_start(Gtk.Label(label='③ 简短解释 · 解释轴与运算，若预测有误说明修正', xalign=0), False, False, 0)
+        practice.pack_start(scroll, False, False, 0)
+        practice.pack_start(Gtk.Label(label='③ 简短解释 · 解释轴与运算，若预测有误说明修正', xalign=0), False, False, 0)
         self.explanation, scroll = editor(62)
-        self.pack_start(scroll, False, False, 0)
+        practice.pack_start(scroll, False, False, 0)
         actions = Gtk.Box(spacing=8)
         self.submit_button = Gtk.Button(label='提交代码与解释给 Agent')
         self.submit_button.get_style_context().add_class('primary')
@@ -59,8 +95,8 @@ class TorchPanel(Gtk.Box):
         self.reset_button.connect('clicked', self.reset)
         actions.pack_start(self.submit_button, True, True, 0)
         actions.pack_start(self.reset_button, False, False, 0)
-        self.pack_start(actions, False, False, 0)
-        for view in [self.code, self.prediction, self.explanation]:
+        practice.pack_start(actions, False, False, 0)
+        for view in [self.code, self.prediction, self.explanation, self.demo_code]:
             view.get_buffer().connect('changed', self.changed)
 
     def draft_path(self):
@@ -70,7 +106,7 @@ class TorchPanel(Gtk.Box):
         if self.lesson and not self.loading:
             try:
                 save_json(self.draft_path(), dict(code=text(self.code), prediction=text(self.prediction),
-                    explanation=text(self.explanation), hint_level=self.hint_level))
+                    explanation=text(self.explanation), hint_level=self.hint_level, demo_code=text(self.demo_code)))
             except OSError:
                 self.host.message('草稿保存失败，请检查本机状态目录权限。')
 
@@ -78,11 +114,17 @@ class TorchPanel(Gtk.Box):
         self.lesson = lesson
         draft = read_json(self.draft_path(), {})
         self.loading = True
+        tutorial = TUTORIALS[lesson['id']]
+        self.teaching_text.get_buffer().set_text(tutorial['title'] + '\n\n' + tutorial['lesson'])
+        self.demo_code.get_buffer().set_text(draft.get('demo_code', tutorial['code']))
+        self.demo_output.get_buffer().set_text('点击运行，查看真实输出。教学实验不计入题目通过状态。')
+        self.observation.get_buffer().set_text('动手观察与修改\n' + tutorial['observe'])
+        self.pages.set_current_page(0)
         self.code.get_buffer().set_text(draft.get('code', lesson['starter']))
         self.prediction.get_buffer().set_text(draft.get('prediction', ''))
         self.explanation.get_buffer().set_text(draft.get('explanation', ''))
         self.hint_level = draft.get('hint_level', 0)
-        self.results.get_buffer().set_text('填写预测后运行。测试会显示具体失败输入与差异；API 用法可主动点击左侧提示。')
+        self.results.get_buffer().set_text('填写预测后运行。测试会显示具体失败输入与差异；基础语法可随时返回教学页查看；需要解题帮助时点击左侧提示。')
         self.result = None; self.last_code = None
         self.loading = False
 
@@ -98,7 +140,7 @@ class TorchPanel(Gtk.Box):
         self.host.message(f'提示 {self.hint_level}/{len(hints)}：' + hints[self.hint_level - 1])
 
     def set_busy(self, busy):
-        for widget in [self.prediction, self.code, self.explanation, self.run_button, self.submit_button, self.reset_button]:
+        for widget in [self.prediction, self.code, self.explanation, self.run_button, self.submit_button, self.reset_button, self.demo_code, self.demo_button, self.restore_demo]:
             widget.set_sensitive(not busy)
 
     def indent(self, view, event):
@@ -127,6 +169,25 @@ class TorchPanel(Gtk.Box):
         if isinstance(value, list):
             return [self.clean_record(v) for v in value]
         return value
+
+    def run_demo(self, *_):
+        code = text(self.demo_code)
+        path = save_attempt(core.ATTEMPTS, self.lesson, self.clean(code), '', '', None, self.hint_level)
+        record = read_json(path, {})
+        record.update(kind='pytorch_tutorial_run', tutorial=TUTORIALS[self.lesson['id']], passed=False)
+        save_json(path, record)
+        def done(result):
+            result = self.clean_record(result)
+            record.update(status='executed' if result['passed'] else 'execution_error', local_result=result)
+            save_json(path, record)
+            output = result['stdout'] or '程序已执行，没有 print 输出。'
+            if not result['passed']:
+                output += '\n' + result.get('error', '运行出错')
+            self.demo_output.get_buffer().set_text(output)
+            self.host.message('教学例子运行完成，可修改代码再观察；这不代表本题通过。' if result['passed'] else '例子运行出错，可对照讲解修改或恢复例子。')
+        self.host.message('正在运行教学例子…')
+        self.host.background(lambda: run_code(self.lesson['id'], code, tutorial=True), done,
+                             on_error=lambda: finish_attempt(path, 'runtime_error'))
 
     def run(self, *_):
         if not text(self.prediction).strip():

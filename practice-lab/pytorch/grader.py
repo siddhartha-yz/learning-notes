@@ -129,6 +129,19 @@ def run(lesson, source):
                 cases=results, stdout=captured.text)
 
 
+def run_demo(source):
+    captured = BoundedOutput()
+    error = ''
+    with contextlib.redirect_stdout(captured), contextlib.redirect_stderr(captured):
+        try:
+            exec(compile(source, 'teaching.py', 'exec'), {'__name__': '__main__'})
+        except BaseException:
+            error = traceback.format_exc()[-3000:]
+    return dict(mode='tutorial', torch_version=torch.__version__, passed=not error,
+                cases=[], stdout=captured.text, error=error)
+
+
 if __name__ == '__main__':
-    result = run(sys.argv[1], Path('/submission/code.py').read_text())
+    source = Path('/submission/code.py').read_text()
+    result = run_demo(source) if sys.argv[1] == '--tutorial' else run(sys.argv[1], source)
     Path('/work/result.json').write_text(json.dumps(result, ensure_ascii=False))

@@ -166,7 +166,7 @@ class Lab(Gtk.Window):
         self.source_button.set_label('阅读路线与关联笔记' if lesson['track'] == 'PyTorch' else '阅读对应笔记')
         group = [item for item in LESSONS if item['chapter'] == lesson['chapter']]
         completed = sum(bool(self.progress.get(item['id'], {}).get('passed')) for item in group)
-        self.subtitle.set_text(lesson['track'].upper() + '  /  ' + lesson['chapter'] + ('     预测 → 实现 → 验证 → 解释' if lesson['track'] == 'PyTorch' else '     从笔记到真实操作 · CIFAR-10 实验实践'))
+        self.subtitle.set_text(lesson['track'].upper() + '  /  ' + lesson['chapter'] + ('     教学 → 实验 → 独立练习 → 评审' if lesson['track'] == 'PyTorch' else '     从笔记到真实操作 · CIFAR-10 实验实践'))
         self.task.set_text(lesson['title'] + '\n\n' + lesson['brief'] + '\n\n你的任务\n\n' + lesson['steps'])
         access = '临时 Home 可读写；原始数据只读' if self.session.writable else '临时数据只读'
         self.terminal.get_buffer().set_text('练习终端 · 真实 Linux 命令\n支持 ' + ' / '.join(self.session.commands) + '\n' + access + '，与个人文件及网络隔离。\n\n')
@@ -174,7 +174,7 @@ class Lab(Gtk.Window):
         self.update_prompt()
         self.answer.get_buffer().set_text('')
         self.location.set_text(self.session.cwd + '  $')
-        self.message(f'本章已完成 {completed} / {len(group)} 题。操作后写下观察，再提交评审。')
+        self.message(f'本章已完成 {completed} / {len(group)} 题。' + ('先阅读教学、运行例子，再进入独立练习。' if lesson['track'] == 'PyTorch' else '操作后写下观察，再提交评审。'))
         self.content_stack.set_visible_child_name('pytorch' if lesson['track'] == 'PyTorch' else 'linux')
         if lesson['track'] == 'PyTorch':
             self.torch_panel.load(lesson)
