@@ -9,6 +9,9 @@ from gi.repository import Gtk, Gdk, GLib
 from core import LESSONS, STATE, Session, checks, read_json, save_json, review, start_attempt, finish_attempt, review_message, load_api_key, save_api_settings
 
 
+from torch_panel import TorchPanel
+
+
 class Lab(Gtk.Window):
     def __init__(self):
         super().__init__(title='Learning Notes · 实践工坊')
@@ -37,12 +40,20 @@ class Lab(Gtk.Window):
         self.subtitle = Gtk.Label(xalign=0)
         self.subtitle.get_style_context().add_class('subtitle')
         root.pack_start(self.subtitle, False, False, 0)
-        self.chapters = list(dict.fromkeys(item['chapter'] for item in LESSONS))
+        self.tracks = list(dict.fromkeys(item['track'] for item in LESSONS))
+        self.track_selector = Gtk.ComboBoxText()
+        for track in self.tracks:
+            self.track_selector.append_text(track + (' · 命令实践' if track == 'Linux' else ' · 模型的可执行表示'))
+        self.track_selector.set_active(0)
+        self.track_selector.connect('changed', self.select_track)
+        root.pack_start(self.track_selector, False, False, 0)
+        self.chapters = list(dict.fromkeys(item['chapter'] for item in LESSONS if item['track'] == 'Linux'))
         self.chapter_indices = []
         self.selecting = False
         navigation = Gtk.Box(spacing=12)
         chapter_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         label = Gtk.Label(label='CHAPTER / 笔记日期', xalign=0)
+        self.chapter_caption = label
         label.get_style_context().add_class('section-label')
         chapter_box.pack_start(label, False, False, 0)
         self.chapter_selector = Gtk.ComboBoxText()
@@ -87,13 +98,18 @@ class Lab(Gtk.Window):
         task_scroll.add(self.task)
         left.pack_start(task_scroll, True, True, 0)
         hint = Gtk.Button(label='给我一点提示')
-        hint.connect('clicked', lambda _: self.message(LESSONS[self.index]['hint']))
+        hint.connect('clicked', self.hint)
         left.pack_start(hint, False, False, 0)
         source = Gtk.Button(label='阅读对应笔记')
+        self.source_button = source
         source.connect('clicked', self.source)
         left.pack_start(source, False, False, 0)
         right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        pane.pack2(right, True, False)
+        self.content_stack = Gtk.Stack()
+        self.content_stack.add_named(right, 'linux')
+        self.torch_panel = TorchPanel(self, STATE)
+        self.content_stack.add_named(self.torch_panel, 'pytorch')
+        pane.pack2(self.content_stack, True, False)
         self.terminal = Gtk.TextView(editable=False, cursor_visible=False, wrap_mode=Gtk.WrapMode.WORD_CHAR)
         self.terminal.set_left_margin(12)
         self.terminal.set_top_margin(12)
@@ -146,9 +162,11 @@ class Lab(Gtk.Window):
 
     def load(self):
         lesson = LESSONS[self.index]
+        self.chapter_caption.set_text('CHAPTER / 能力阶段' if lesson['track'] == 'PyTorch' else 'CHAPTER / 笔记日期')
+        self.source_button.set_label('阅读路线与关联笔记' if lesson['track'] == 'PyTorch' else '阅读对应笔记')
         group = [item for item in LESSONS if item['chapter'] == lesson['chapter']]
         completed = sum(bool(self.progress.get(item['id'], {}).get('passed')) for item in group)
-        self.subtitle.set_text('LINUX  /  ' + lesson['chapter'] + '     从笔记到真实操作 · CIFAR-10 实验实践')
+        self.subtitle.set_text(lesson['track'].upper() + '  /  ' + lesson['chapter'] + ('     预测 → 实现 → 验证 → 解释' if lesson['track'] == 'PyTorch' else '     从笔记到真实操作 · CIFAR-10 实验实践'))
         self.task.set_text(lesson['title'] + '\n\n' + lesson['brief'] + '\n\n你的任务\n\n' + lesson['steps'])
         access = '临时 Home 可读写；原始数据只读' if self.session.writable else '临时数据只读'
         self.terminal.get_buffer().set_text('练习终端 · 真实 Linux 命令\n支持 ' + ' / '.join(self.session.commands) + '\n' + access + '，与个人文件及网络隔离。\n\n')
@@ -157,11 +175,33 @@ class Lab(Gtk.Window):
         self.answer.get_buffer().set_text('')
         self.location.set_text(self.session.cwd + '  $')
         self.message(f'本章已完成 {completed} / {len(group)} 题。操作后写下观察，再提交评审。')
+        self.content_stack.set_visible_child_name('pytorch' if lesson['track'] == 'PyTorch' else 'linux')
+        if lesson['track'] == 'PyTorch':
+            self.torch_panel.load(lesson)
         self.update_completion()
+
+    def hint(self, *_):
+        if LESSONS[self.index]['track'] == 'PyTorch':
+            self.torch_panel.hint()
+        else:
+            self.message(LESSONS[self.index]['hint'])
+
+    def select_track(self, widget):
+        if self.selecting or self.busy or widget.get_active() < 0:
+            return
+        track = self.tracks[widget.get_active()]
+        self.select_lesson(next(i for i, lesson in enumerate(LESSONS) if lesson['track'] == track))
 
     def populate_lessons(self, index):
         self.selecting = True
         chapter = LESSONS[index]['chapter']
+        track = LESSONS[index]['track']
+        self.track_selector.set_active(self.tracks.index(track))
+        self.chapters = list(dict.fromkeys(item['chapter'] for item in LESSONS if item['track'] == track))
+        self.chapter_selector.remove_all()
+        for name in self.chapters:
+            count = sum(item['chapter'] == name for item in LESSONS)
+            self.chapter_selector.append_text(f'{name}   ·   {count} 道题')
         self.chapter_indices = [i for i, item in enumerate(LESSONS) if item['chapter'] == chapter]
         self.chapter_selector.set_active(self.chapters.index(chapter))
         self.selector.remove_all()
@@ -190,7 +230,9 @@ class Lab(Gtk.Window):
         chapter = LESSONS[self.index]['chapter']
         indices = self.chapter_indices
         completed = sum(bool(self.progress.get(LESSONS[i]['id'], {}).get('passed')) for i in indices)
-        all_done = all(self.progress.get(item['id'], {}).get('passed') for item in LESSONS)
+        track = LESSONS[self.index]['track']
+        track_lessons = [(i, item) for i, item in enumerate(LESSONS) if item['track'] == track]
+        all_done = all(self.progress.get(item['id'], {}).get('passed') for _, item in track_lessons)
         style = self.lesson_status.get_style_context()
         style.remove_class('passed')
         if all_done:
@@ -216,7 +258,7 @@ class Lab(Gtk.Window):
             else:
                 self.next_index = next((i for i in indices if not self.progress.get(LESSONS[i]['id'], {}).get('passed')), None)
                 if self.next_index is None:
-                    self.next_index = next(i for i, item in enumerate(LESSONS) if not self.progress.get(item['id'], {}).get('passed'))
+                    self.next_index = next(i for i, item in track_lessons if not self.progress.get(item['id'], {}).get('passed'))
         label = '进入下一题 →'
         if self.next_index is not None and LESSONS[self.next_index]['chapter'] != chapter:
             label = '进入 ' + LESSONS[self.next_index]['chapter'] + ' 练习 →'
@@ -242,8 +284,9 @@ class Lab(Gtk.Window):
 
     def set_busy(self, value):
         self.busy = value
-        for widget in [self.chapter_selector, self.selector, self.entry, self.submit, self.reset, self.answer, self.next_button]:
+        for widget in [self.track_selector, self.chapter_selector, self.selector, self.entry, self.submit, self.reset, self.answer, self.next_button]:
             widget.set_sensitive(not value)
+        self.torch_panel.set_busy(value)
 
     def background(self, action, done, on_error=None):
         self.set_busy(True)
@@ -358,12 +401,23 @@ class Lab(Gtk.Window):
         dialog.destroy()
 
     def source(self, *_):
-        path = Path(__file__).resolve().parent.parent / LESSONS[self.index]['source']
-        dialog = Gtk.Dialog(title='原始笔记 · ' + LESSONS[self.index]['chapter'], transient_for=self)
-        dialog.set_default_size(700, 650)
+        lesson = LESSONS[self.index]
+        paths = [lesson['source']] + lesson.get('sources', [])
+        dialog = Gtk.Dialog(title='学习资料 · ' + lesson['chapter'], transient_for=self)
+        dialog.set_default_size(760, 650)
         dialog.add_button('关闭', Gtk.ResponseType.CLOSE)
         view = Gtk.TextView(editable=False, wrap_mode=Gtk.WrapMode.WORD_CHAR)
-        view.get_buffer().set_text(path.read_text())
+        def show_source(index):
+            path = Path(__file__).resolve().parent.parent / paths[index]
+            view.get_buffer().set_text(path.read_text())
+        if len(paths) > 1:
+            choices = Gtk.ComboBoxText()
+            for path in paths:
+                choices.append_text(path)
+            choices.set_active(0)
+            choices.connect('changed', lambda widget: show_source(widget.get_active()))
+            dialog.get_content_area().pack_start(choices, False, False, 0)
+        show_source(0)
         scroll = Gtk.ScrolledWindow()
         scroll.add(view)
         dialog.get_content_area().pack_start(scroll, True, True, 0)

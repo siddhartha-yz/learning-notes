@@ -63,7 +63,7 @@ def main():
             assert '26.9.3 本组完成' in window.lesson_status.get_text()
             assert '26.9.4' in window.next_button.get_label()
             window.next_button.emit('clicked')
-            for index, lesson in enumerate(app.LESSONS[3:], 3):
+            for index, lesson in [(i, l) for i, l in enumerate(app.LESSONS) if l['id'] in WORKFLOWS]:
                 assert window.index == index
                 assert lesson['chapter'] in window.subtitle.get_text()
                 assert window.session.writable
@@ -80,7 +80,7 @@ def main():
                 window.submit.emit('clicked')
                 settle(window)
                 assert window.progress[lesson['id']]['passed']
-                if index < len(app.LESSONS) - 1:
+                if lesson['id'] != list(WORKFLOWS)[-1]:
                     assert window.next_button.get_visible()
                     window.next_button.emit('clicked')
                     assert not window.session.history

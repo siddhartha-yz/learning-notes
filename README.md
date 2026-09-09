@@ -42,3 +42,5 @@
 ```bash
 ./practice-lab/launch.sh
 ```
+
+新增 [PyTorch 实践路线](./practice-lab/pytorch/ROADMAP.md)：以代码作为模型的可执行表示，从张量、轴、广播和索引起步，再逐步进入梯度、训练循环与 RNN。第一阶段六题已接入同一桌面应用。

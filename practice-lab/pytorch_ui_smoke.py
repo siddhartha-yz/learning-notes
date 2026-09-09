@@ -1,0 +1,69 @@
+"""Real PyTorch + GTK; model responses mocked; all user state is temporary."""
+from pathlib import Path
+import tempfile
+from unittest.mock import patch
+import app
+import core
+import torch_panel
+from test_pytorch import SOLUTIONS
+from ui_smoke import settle
+from gi.repository import Gtk
+
+
+def main():
+    Gtk.Settings.get_default().set_property('gtk-enable-animations', False)
+    with tempfile.TemporaryDirectory() as temporary, \
+         patch.object(app, 'STATE', Path(temporary) / 'state'), \
+         patch.object(core, 'ATTEMPTS', Path(temporary) / 'attempts'), \
+         patch.object(torch_panel, 'review', return_value={'passed': True, 'feedback': '本题回答正确，已通过。', 'next_step': ''}) as reviewer:
+        window = app.Lab(); window.show_all()
+        try:
+            window.config = {'base_url': 'https://example.com/v1', 'model': 'mock'}
+            window.key = 'synthetic-secret'
+            window.track_selector.set_active(window.tracks.index('PyTorch'))
+            panel = window.torch_panel
+            assert len(window.chapter_selector.get_model()) == 3
+            assert len(window.selector.get_model()) == 2
+            assert panel.hint_level == 0
+            panel.run_button.emit('clicked')
+            assert not window.busy
+            assert not list(core.ATTEMPTS.rglob('*.json'))
+            for index, lesson in [(i, l) for i, l in enumerate(app.LESSONS) if l['track'] == 'PyTorch']:
+                window.select_lesson(index)
+                panel.prediction.get_buffer().set_text('UI 测试预测；非学生作答。')
+                panel.code.get_buffer().set_text('import torch\n' + SOLUTIONS[lesson['id']])
+                panel.explanation.get_buffer().set_text('UI 测试解释；Agent 已模拟。')
+                panel.run_button.emit('clicked'); settle(window)
+                assert panel.result and panel.result['passed'], panel.result
+                if lesson['id'] == 'torch-batch':
+                    window.hint()
+                    assert panel.hint_level == 1
+                    reviewer.return_value = {'passed': False, 'feedback': '模拟：请解释样本轴。', 'next_step': ''}
+                    panel.submit_button.emit('clicked'); settle(window)
+                    assert not window.progress[lesson['id']]['passed']
+                    reviewer.return_value = {'passed': True, 'feedback': '本题回答正确，已通过。', 'next_step': ''}
+                panel.submit_button.emit('clicked'); settle(window)
+                assert window.progress[lesson['id']]['passed']
+                panel.code.get_buffer().insert_at_cursor('\n# 草稿变化\n')
+                before = reviewer.call_count
+                panel.submit_button.emit('clicked')
+                assert reviewer.call_count == before
+            assert '全部完成' in window.lesson_status.get_text()
+            assert not window.next_button.get_visible()
+            window.track_selector.set_active(window.tracks.index('Linux'))
+            assert window.content_stack.get_visible_child_name() == 'linux'
+            window.track_selector.set_active(window.tracks.index('PyTorch'))
+            assert 'build_batch' in torch_panel.text(panel.code)
+            assert panel.hint_level == 1
+            assert panel.result is None
+            logs = [core.read_json(p, {}) for p in core.ATTEMPTS.rglob('*.json')]
+            assert len([l for l in logs if l['kind'] == 'pytorch_run']) == 6
+            assert len([l for l in logs if l['kind'] == 'pytorch_submission']) == 7
+            assert all('code' in l and 'prediction' in l for l in logs)
+            assert any(l.get('review', {}).get('passed') is False for l in logs if l.get('review'))
+            print('PyTorch GTK passed: 6 real exercises, explicit hints, drafts, stale-code guard, mock review retry, 13 logs, track switching')
+        finally:
+            window.session.close(); window.destroy()
+
+
+if __name__ == '__main__': main()

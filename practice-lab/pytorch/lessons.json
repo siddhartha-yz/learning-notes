@@ -1,0 +1,153 @@
+[
+  {
+    "id": "torch-batch",
+    "chapter": "01A · 张量表示",
+    "title": "01  一批样本，而不是一串数字",
+    "brief": "一个分类器每次接收 B 个样本，每个样本有 D 个数值特征。features 是 B 行 D 列的 Python 列表，labels 是 B 个类别编号。请把它们变成两个 CPU 张量，作为之后模型的输入。B、D 均为正整数，标签是非负整数。",
+    "prediction": "先预测：features=[[1,2],[3,4],[5,6]]、labels=[0,1,0] 时，X 与 y 各是什么形状？若只保留一个样本，两个形状又是什么？",
+    "explanation": "解释 X 的两个轴分别表示什么，以及为什么只有一个样本时仍要保留 batch 轴。",
+    "rubric": "X=[3,2], y=[3]；单样本 X=[1,2], y=[1]。第0轴是样本，第1轴是特征；单样本仍属于批处理约定。只要求解释轴语义，不要求深入解释整数标签的算子实现。",
+    "starter": "import torch\n\ndef build_batch(features, labels):\n    # 返回 X, y\n    raise NotImplementedError\n",
+    "hints": [
+      "先区分数据的层次：最外层是一批样本，每个样本内才是特征。单样本不会自动消失一层。",
+      "可查 torch.tensor(data, dtype=...)；本题需要 torch.float32 与 torch.int64。",
+      "分别构造特征张量与标签张量，显式指定 dtype；不要把所有样本拼成一条向量。"
+    ],
+    "sources": [
+      "Pytorch语法/26.9.9.md"
+    ],
+    "track": "PyTorch",
+    "kind": "pytorch",
+    "source": "practice-lab/pytorch/ROADMAP.md",
+    "checks": [],
+    "cwd": null,
+    "steps": "实现 build_batch(features, labels)，返回 (X, y)。X 的形状为 [B,D]、dtype 为 torch.float32；y 的形状为 [B]、dtype 为 torch.int64。保持原始样本和特征顺序，不修改输入列表。\n\n运行前预测\n先预测：features=[[1,2],[3,4],[5,6]]、labels=[0,1,0] 时，X 与 y 各是什么形状？若只保留一个样本，两个形状又是什么？\n\n提交时解释\n解释 X 的两个轴分别表示什么，以及为什么只有一个样本时仍要保留 batch 轴。",
+    "hint": "先区分数据的层次：最外层是一批样本，每个样本内才是特征。单样本不会自动消失一层。"
+  },
+  {
+    "id": "torch-flatten",
+    "chapter": "01A · 张量表示",
+    "title": "02  图像展平，样本不能混在一起",
+    "brief": "MLP 的输入是一批特征向量。现在 images 是 CPU 浮点图像张量 [B,C,H,W]，需要把每张图像的通道和空间位置展平为特征轴。各维度均大于0，输入也可能是非连续张量。",
+    "prediction": "输入 [2,3,2,2] 时输出形状是什么？输入 [1,3,2,2] 呢？为什么仅把全部元素变成一条长度24的向量不符合模型约定？",
+    "explanation": "解释哪些轴被合并、哪个轴必须保留，以及 batch 大小变化时实现为什么仍成立。",
+    "rubric": "形状分别[2,12]、[1,12]；仅合并C,H,W，保留B。展平成[24]或固定写死B会破坏样本对应关系。接受reshape、flatten等等效写法，不要求讨论内存步长细节。",
+    "starter": "import torch\n\ndef flatten_images(images):\n    raise NotImplementedError\n",
+    "hints": [
+      "先写出一个样本有多少个数，再决定输出的一行代表什么。",
+      "可以查 Tensor.flatten(start_dim=...) 或 Tensor.reshape(...)。reshape能在必要时复制，普通view不总能处理非连续输入。",
+      "从第1轴开始合并，或保留 images.shape[0] 并推导另一个维度；不要固定批大小。"
+    ],
+    "sources": [
+      "机器学习/26年9月/26.9.1.md"
+    ],
+    "track": "PyTorch",
+    "kind": "pytorch",
+    "source": "practice-lab/pytorch/ROADMAP.md",
+    "checks": [],
+    "cwd": null,
+    "steps": "实现 flatten_images(images)，返回 [B,C*H*W]，保持 dtype 和每个样本内部按 C、H、W 逻辑顺序排列的值。不能把不同样本拼进同一行，不修改输入。允许返回视图或副本。\n\n运行前预测\n输入 [2,3,2,2] 时输出形状是什么？输入 [1,3,2,2] 呢？为什么仅把全部元素变成一条长度24的向量不符合模型约定？\n\n提交时解释\n解释哪些轴被合并、哪个轴必须保留，以及 batch 大小变化时实现为什么仍成立。",
+    "hint": "先写出一个样本有多少个数，再决定输出的一行代表什么。"
+  },
+  {
+    "id": "torch-center",
+    "chapter": "01B · 轴与广播",
+    "title": "03  每个特征都有自己的均值",
+    "brief": "房价模型输入 X=[B,D]，每列是同一种数值特征，每行是一套房屋。请在当前批次中分别计算每列均值，并让每个特征减去自己的均值。本题只做中心化，不除以标准差，也不跨数据集拟合统计量。",
+    "prediction": "X=[[1,10],[3,30]] 时列均值和中心化结果是什么？若只有一行 [[5,20]]，结果是什么？",
+    "explanation": "解释应沿哪个轴求均值，广播如何使每一列减去对应的值；为什么按行求均值虽然可能能运行，却改变了任务含义？",
+    "rubric": "mean=[2,20], centered=[[-1,-10],[1,10]]；单行mean=[5,20]、centered全0。沿样本轴dim0归约，每个特征独立；mean按特征对齐广播到每个样本。",
+    "starter": "import torch\n\ndef center_features(X):\n    raise NotImplementedError\n",
+    "hints": [
+      "你要消去的是“不同房屋”这个轴，留下“不同特征”这个轴。",
+      "可查 Tensor.mean(dim=...)。广播按尾部维度对齐，形状 [D] 可以与 [B,D] 做逐元素运算。",
+      "先得到每列一个均值，再用非原地减法；B等于D时，错误的轴也可能看起来形状正确。"
+    ],
+    "sources": [
+      "机器学习/26年9月/26.9.2.md"
+    ],
+    "track": "PyTorch",
+    "kind": "pytorch",
+    "source": "practice-lab/pytorch/ROADMAP.md",
+    "checks": [],
+    "cwd": null,
+    "steps": "实现 center_features(X)，返回 (centered, mean)。centered=[B,D]，mean=[D]；二者保持输入的浮点 dtype，且原 X 不变。B,D>=1，测试 float32 与 float64、非连续输入。\n\n运行前预测\nX=[[1,10],[3,30]] 时列均值和中心化结果是什么？若只有一行 [[5,20]]，结果是什么？\n\n提交时解释\n解释应沿哪个轴求均值，广播如何使每一列减去对应的值；为什么按行求均值虽然可能能运行，却改变了任务含义？",
+    "hint": "你要消去的是“不同房屋”这个轴，留下“不同特征”这个轴。"
+  },
+  {
+    "id": "torch-probs",
+    "chapter": "01B · 轴与广播",
+    "title": "04  每个样本各有一份类别分布",
+    "brief": "分类器产生 logits=[B,C]：每行是一个样本，每列是一个类别的未归一化分数。softmax 把同一行分数变成概率：p_i=exp(z_i)/Σ_j exp(z_j)。本题可以直接使用 PyTorch 的 softmax，不要求手写指数公式。",
+    "prediction": "logits=[[0,0],[0,0]] 时结果是什么？softmax应该沿样本轴还是类别轴？如果整行都加1000，概率应不应该改变？",
+    "explanation": "解释每行代表的概率分布及归一化轴。为什么跨样本归一化不是这个分类器所需的含义？",
+    "rubric": "每行[0.5,0.5]；沿类别轴dim1或-1。同行加常数不改变概率；跨样本归一化会让一个样本概率依赖别的样本。无需证明数值稳定算法。",
+    "starter": "import torch\n\ndef class_probabilities(logits):\n    raise NotImplementedError\n",
+    "hints": [
+      "归一化的竞争者是同一样本的不同类别，不是不同样本。",
+      "可查 torch.softmax(input, dim=...)。本题允许使用这个稳定实现。",
+      "对每一行做归一化，显式选择类别轴；不要直接用exp处理大分数。"
+    ],
+    "sources": [
+      "机器学习/26年8月/26.8.10/softmax回归.md"
+    ],
+    "track": "PyTorch",
+    "kind": "pytorch",
+    "source": "practice-lab/pytorch/ROADMAP.md",
+    "checks": [],
+    "cwd": null,
+    "steps": "实现 class_probabilities(logits)，返回相同形状与浮点 dtype 的概率张量。每行概率和为1，输入不变；测试B=1、C=1、很大的有限正负分数和float64。\n\n运行前预测\nlogits=[[0,0],[0,0]] 时结果是什么？softmax应该沿样本轴还是类别轴？如果整行都加1000，概率应不应该改变？\n\n提交时解释\n解释每行代表的概率分布及归一化轴。为什么跨样本归一化不是这个分类器所需的含义？",
+    "hint": "归一化的竞争者是同一样本的不同类别，不是不同样本。"
+  },
+  {
+    "id": "torch-select",
+    "chapter": "01C · 索引与序列",
+    "title": "05  取出每个样本真实类别的概率",
+    "brief": "分类损失需要每个样本在自己真实类别上的概率。给定 probs=[B,C] 与 targets=[B]，第b个目标是 probs[b,targets[b]]。targets 为 int64，编号范围[0,C)，probs 是有效概率。本题不取对数、不求平均。",
+    "prediction": "probs=[[0.1,0.7,0.2],[0.6,0.3,0.1]]，targets=[1,0]，应取出哪两个数？为什么不是取出两整列？",
+    "explanation": "解释样本索引与类别索引为何要一一配对，单样本输出为什么仍是[1]而不是标量。",
+    "rubric": "得到[0.7,0.6]；每行取各自类别，不能用targets同时选所有行的列形成[B,B]。单样本仍返回一维批次结果。接受配对索引、gather或正确循环。",
+    "starter": "import torch\n\ndef target_probabilities(probs, targets):\n    raise NotImplementedError\n",
+    "hints": [
+      "目标是B个坐标对：(0,targets[0]), (1,targets[1])……，而不是所有行与所有目标列的组合。",
+      "可查 torch.arange 与张量的配对高级索引；也可用 Tensor.gather(dim,index)。",
+      "配对索引时两个索引形状应都是[B]；若用gather，沿类别轴取每行一个值，再只去掉那个长度为1的轴。"
+    ],
+    "sources": [
+      "机器学习/26年8月/26.8.10/softmax回归.md"
+    ],
+    "track": "PyTorch",
+    "kind": "pytorch",
+    "source": "practice-lab/pytorch/ROADMAP.md",
+    "checks": [],
+    "cwd": null,
+    "steps": "实现 target_probabilities(probs, targets)，返回 [B]，与probs浮点dtype一致。B,C>=1，不修改任一输入；测试不同目标编号、B=1与非连续probs。\n\n运行前预测\nprobs=[[0.1,0.7,0.2],[0.6,0.3,0.1]]，targets=[1,0]，应取出哪两个数？为什么不是取出两整列？\n\n提交时解释\n解释样本索引与类别索引为何要一一配对，单样本输出为什么仍是[1]而不是标量。",
+    "hint": "目标是B个坐标对：(0,targets[0]), (1,targets[1])……，而不是所有行与所有目标列的组合。"
+  },
+  {
+    "id": "torch-mask",
+    "chapter": "01C · 索引与序列",
+    "title": "06  padding 不应该参与 token 损失",
+    "brief": "序列批次中，短句通过 padding 补齐到T。token_losses=[B,T] 是每个位置已有的损失，valid=[B,T] 是布尔掩码：True代表真实token。请计算整个批次所有有效token的平均损失，不是“各句平均再取平均”。所有损失为有限非负数，至少有一个有效token。",
+    "prediction": "losses=[[1,3,100],[8,100,100]]，valid=[[True,True,False],[True,False,False]]。分子、分母、最终平均值各是多少？为什么分母不是6？",
+    "explanation": "解释有效token总平均与每句平均后再平均的权重区别，以及padding为何不能参与损失。",
+    "rubric": "有效损失1,3,8，和12、计数3、均值4。分母是有效位置数，不是B*T。token平均使每个真实token等权；各句先平均再平均使每句等权，长短句token权重不同。padding是补齐占位而非训练目标。",
+    "starter": "import torch\n\ndef masked_token_mean(token_losses, valid):\n    raise NotImplementedError\n",
+    "hints": [
+      "先从损失里选出真实token，再判断平均的分母是什么。",
+      "布尔张量可用于索引：values[mask] 选择True位置；也可用mask参与求和再除以有效数量。",
+      "选择有效位置后求均值即可表达token等权；不能对所有B*T个位置取mean，也不能把每句话先平均。"
+    ],
+    "sources": [
+      "机器学习/26年9月/26.9.5.md",
+      "机器学习/26年9月/26.9.7.md"
+    ],
+    "track": "PyTorch",
+    "kind": "pytorch",
+    "source": "practice-lab/pytorch/ROADMAP.md",
+    "checks": [],
+    "cwd": null,
+    "steps": "实现 masked_token_mean(token_losses, valid)，返回0维标量张量，保持losses浮点dtype，不修改输入。无效位置可能带有很大的占位损失，应被完全排除；测试不同句长、B=1及非连续输入。\n\n运行前预测\nlosses=[[1,3,100],[8,100,100]]，valid=[[True,True,False],[True,False,False]]。分子、分母、最终平均值各是多少？为什么分母不是6？\n\n提交时解释\n解释有效token总平均与每句平均后再平均的权重区别，以及padding为何不能参与损失。",
+    "hint": "先从损失里选出真实token，再判断平均的分母是什么。"
+  }
+]
