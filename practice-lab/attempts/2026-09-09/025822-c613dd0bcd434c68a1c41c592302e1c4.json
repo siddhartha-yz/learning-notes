@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "submitted_at": "2026-09-09T02:58:22.418751+00:00",
+  "status": "reviewed",
+  "lesson": {
+    "id": "linux-0906-report",
+    "title": "03  导出验证记录，补充实验来源",
+    "brief": "本题有 metrics.log，混合记录 train 与 val 两种数据划分。summary.txt 已有上一轮遗留内容 STALE，必须替换。只整理已有评估记录，不启动训练。",
+    "steps": "① 用 cat 查看 metrics.log。\n② 筛选包含 split=val 的行，用 > 覆盖写入 summary.txt。\n③ 用 echo 与反引号中的 pwd，将 project=当前项目绝对路径作为新行，用 >> 追加到 summary.txt。\n④ 再追加一行 status=reviewed，用 tail -3 检查文件末尾。\n⑤ 写下 > 与 >> 的区别，并说明为什么验证摘要不能混入 split=train 的记录。",
+    "hint": "grep 的输出可重定向到文件；echo \"project=`pwd`\" 会把当前位置拼入文字。> 替换旧内容，>> 保留旧内容并追加。",
+    "rubric": "> 覆盖旧内容，>> 追加；train 是训练划分，不能混作 val 验证结果。摘要应只有两行 val 指标和 project、status 两行，不能留下 STALE 或丢失验证记录。",
+    "checks": [
+      [
+        "cat",
+        "split=train",
+        "阅读原始指标"
+      ],
+      [
+        "tail",
+        "status=reviewed",
+        "检查摘要结尾"
+      ]
+    ],
+    "state_checks": [
+      [
+        "text",
+        "summary.txt",
+        "摘要含完整验证记录与追加说明",
+        "epoch=1 split=val accuracy=0.61\nepoch=2 split=val accuracy=0.68\nproject=/home/student/projects/cifar10\nstatus=reviewed\n"
+      ],
+      [
+        "fixture",
+        "metrics.log",
+        "原始指标保持不变"
+      ]
+    ],
+    "chapter": "26.9.6",
+    "source": "Linux系统学习/26.9.6.md",
+    "environment": "text-ops",
+    "start_cwd": "/home/student/projects/cifar10",
+    "cwd": null
+  },
+  "history": [
+    {
+      "command": "ls",
+      "words": [
+        "ls"
+      ],
+      "output": "README.md\ncheckpoints\nmetrics.log\nsummary.txt\ntrain.py\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "cat metrics.log",
+      "words": [
+        "cat",
+        "metrics.log"
+      ],
+      "output": "epoch=1 split=train accuracy=0.76\nepoch=1 split=val accuracy=0.61\nepoch=2 split=train accuracy=0.85\nepoch=2 split=val accuracy=0.68\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "grep \"split=val\" > summary.txt",
+      "words": [
+        "grep",
+        "split=val",
+        ">",
+        "summary.txt"
+      ],
+      "output": "",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 1
+    },
+    {
+      "command": "grep \"split=val\" metrics.log > summary.txt",
+      "words": [
+        "grep",
+        "split=val",
+        "metrics.log",
+        ">",
+        "summary.txt"
+      ],
+      "output": "",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "cat summary.txt",
+      "words": [
+        "cat",
+        "summary.txt"
+      ],
+      "output": "epoch=1 split=val accuracy=0.61\nepoch=2 split=val accuracy=0.68\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "echo `pwd`",
+      "words": [
+        "echo",
+        "`pwd`"
+      ],
+      "output": "/home/student/projects/cifar10\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "echo \"project=`pwd`\"",
+      "words": [
+        "echo",
+        "project=`pwd`"
+      ],
+      "output": "project=/home/student/projects/cifar10\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "echo \"project=`pwd`\" >> summary.txt",
+      "words": [
+        "echo",
+        "project=`pwd`",
+        ">>",
+        "summary.txt"
+      ],
+      "output": "",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "cat summary.txt",
+      "words": [
+        "cat",
+        "summary.txt"
+      ],
+      "output": "epoch=1 split=val accuracy=0.61\nepoch=2 split=val accuracy=0.68\nproject=/home/student/projects/cifar10\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "echo \"status=reviewed\" >> summary.txt",
+      "words": [
+        "echo",
+        "status=reviewed",
+        ">>",
+        "summary.txt"
+      ],
+      "output": "",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "tail -3 summary.txt",
+      "words": [
+        "tail",
+        "-3",
+        "summary.txt"
+      ],
+      "output": "epoch=2 split=val accuracy=0.68\nproject=/home/student/projects/cifar10\nstatus=reviewed\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    }
+  ],
+  "answer": ">是覆盖写入，>>是追加写入。\ntrain是在测试集上跑出的结果，当然不能混入验证摘要。",
+  "local_checks": [
+    [
+      "阅读原始指标",
+      true
+    ],
+    [
+      "检查摘要结尾",
+      true
+    ],
+    [
+      "摘要含完整验证记录与追加说明",
+      true
+    ],
+    [
+      "原始指标保持不变",
+      true
+    ]
+  ],
+  "finished_at": "2026-09-09T02:58:25.564853+00:00",
+  "passed": true,
+  "review": {
+    "passed": true,
+    "feedback": "本题回答正确，已通过。",
+    "next_step": ""
+  }
+}

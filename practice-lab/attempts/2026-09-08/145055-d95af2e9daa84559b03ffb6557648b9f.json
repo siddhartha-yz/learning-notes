@@ -1,0 +1,203 @@
+{
+  "schema_version": 1,
+  "submitted_at": "2026-09-08T14:50:55.884629+00:00",
+  "status": "reviewed",
+  "lesson": {
+    "id": "linux-0904-cleanup",
+    "title": "03  先核对清单，再清理临时输出",
+    "brief": "本题是新的独立环境。一次训练已结束，项目 runs/review 中混有临时文件和需要保留的结果。先读完 cleanup-plan.txt，再操作；不要凭文件名猜测。",
+    "steps": "① 在项目内用 more runs/review/cleanup-plan.txt 分页阅读清单；在应用输入框按 Space 翻页，q 退出。读到最后一页确认保留项。\n② 进入 runs/review，用 ls tmp* 预览将被清理的项目。\n③ 删除两个 tmp_ 开头的临时文件，并递归删除 scratch 目录。保留其余文件。\n④ 用 ls -l 查看清理结果。\n⑤ 写下清单中的保留文件名，并解释为什么不能用 rm -r * 清理整个目录。",
+    "hint": "先阅读清单再删除。tmp* 只匹配以 tmp 开头的名称；rm 删除文件，rm -r 删除目录及内容。可一次删除匹配项，也可明确列出两个文件。",
+    "rubric": "必须保留 best.pt、metrics.csv 和 cleanup-plan.txt。rm -r * 会连同应保留的权重、指标和清单一起删除；通配符按名字匹配，不理解文件用途。只需据清单解释，不要求讨论模型质量。",
+    "cwd": "/home/student/projects/cifar10/runs/review",
+    "checks": [
+      [
+        "more",
+        "KEEP: best.pt, metrics.csv, cleanup-plan.txt",
+        "分页读到清单保留项"
+      ],
+      [
+        "ls",
+        "tmp_batch.cache",
+        "预览临时文件"
+      ],
+      [
+        "ls",
+        "best.pt",
+        "查看保留权重"
+      ]
+    ],
+    "state_checks": [
+      [
+        "absent",
+        "runs/review/tmp_batch.cache",
+        "删除临时批次缓存"
+      ],
+      [
+        "absent",
+        "runs/review/tmp_worker.log",
+        "删除临时工作日志"
+      ],
+      [
+        "absent",
+        "runs/review/scratch",
+        "递归删除临时目录"
+      ],
+      [
+        "text",
+        "runs/review/best.pt",
+        "保留权重占位文件内容",
+        "checkpoint-placeholder\n"
+      ],
+      [
+        "text",
+        "runs/review/metrics.csv",
+        "保留评估指标内容",
+        "epoch,accuracy\n3,0.72\n"
+      ],
+      [
+        "fixture",
+        "runs/review/cleanup-plan.txt",
+        "保留原始清理清单"
+      ]
+    ],
+    "chapter": "26.9.4",
+    "source": "Linux系统学习/26.9.4.md",
+    "environment": "file-ops",
+    "start_cwd": "/home/student/projects/cifar10"
+  },
+  "history": [
+    {
+      "command": "more runs/review/cleanup-plan.txt",
+      "words": [
+        "more",
+        "runs/review/cleanup-plan.txt"
+      ],
+      "output": "::::::::::::::\nruns/review/cleanup-plan.txt\n::::::::::::::\nCIFAR-10 cleanup plan\nRead the full plan before deleting files.\nThe training process has already stopped.\nThis exercise contains placeholder files.\nTemporary files are disposable.\nModel results must remain available.\nDELETE: tmp_batch.cache\nDELETE: tmp_worker.log\nDELETE DIRECTORY: scratch (including its contents)\nPreview matching names before deletion.\nDo not delete the entire review directory.\nThe final page specifies the keep list.\nKEEP: best.pt, metrics.csv, cleanup-plan.txt\nEnd of cleanup plan.\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0,
+      "pager_actions": [
+        "open",
+        "next",
+        "next"
+      ]
+    },
+    {
+      "command": "cd runs/review",
+      "words": [
+        "cd",
+        "runs/review"
+      ],
+      "output": "",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10/runs/review",
+      "exit_code": 0
+    },
+    {
+      "command": "ls tmp*",
+      "words": [
+        "ls",
+        "tmp*"
+      ],
+      "output": "tmp_batch.cache\ntmp_worker.log\n",
+      "cwd_before": "/home/student/projects/cifar10/runs/review",
+      "cwd_after": "/home/student/projects/cifar10/runs/review",
+      "exit_code": 0
+    },
+    {
+      "command": "rm tmp*",
+      "words": [
+        "rm",
+        "tmp*"
+      ],
+      "output": "",
+      "cwd_before": "/home/student/projects/cifar10/runs/review",
+      "cwd_after": "/home/student/projects/cifar10/runs/review",
+      "exit_code": 0
+    },
+    {
+      "command": "ls",
+      "words": [
+        "ls"
+      ],
+      "output": "best.pt\ncleanup-plan.txt\nmetrics.csv\nscratch\n",
+      "cwd_before": "/home/student/projects/cifar10/runs/review",
+      "cwd_after": "/home/student/projects/cifar10/runs/review",
+      "exit_code": 0
+    },
+    {
+      "command": "rm -r scratch",
+      "words": [
+        "rm",
+        "-r",
+        "scratch"
+      ],
+      "output": "",
+      "cwd_before": "/home/student/projects/cifar10/runs/review",
+      "cwd_after": "/home/student/projects/cifar10/runs/review",
+      "exit_code": 0
+    },
+    {
+      "command": "ls -l",
+      "words": [
+        "ls",
+        "-l"
+      ],
+      "output": "total 12\n-rw-rw-r-- 1 1000 1000  23 Sep  8 14:47 best.pt\n-rw-rw-r-- 1 1000 1000 504 Sep  8 14:47 cleanup-plan.txt\n-rw-rw-r-- 1 1000 1000  22 Sep  8 14:47 metrics.csv\n",
+      "cwd_before": "/home/student/projects/cifar10/runs/review",
+      "cwd_after": "/home/student/projects/cifar10/runs/review",
+      "exit_code": 0
+    }
+  ],
+  "answer": "best.pt\ncleanup-plan.txt\nmetrics.csv\n应该用rm -r ./* 才能清理整个目录？",
+  "local_checks": [
+    [
+      "分页读到清单保留项",
+      true
+    ],
+    [
+      "预览临时文件",
+      true
+    ],
+    [
+      "查看保留权重",
+      true
+    ],
+    [
+      "删除临时批次缓存",
+      true
+    ],
+    [
+      "删除临时工作日志",
+      true
+    ],
+    [
+      "递归删除临时目录",
+      true
+    ],
+    [
+      "保留权重占位文件内容",
+      true
+    ],
+    [
+      "保留评估指标内容",
+      true
+    ],
+    [
+      "保留原始清理清单",
+      true
+    ],
+    [
+      "结束时所在目录正确",
+      true
+    ]
+  ],
+  "finished_at": "2026-09-08T14:51:03.683660+00:00",
+  "passed": false,
+  "review": {
+    "passed": false,
+    "feedback": "操作部分正确，但答案未解释为什么不能用 rm -r *，需要说明它会连同 best.pt、metrics.csv、cleanup-plan.txt 等需保留文件一起删除。",
+    "next_step": ""
+  }
+}

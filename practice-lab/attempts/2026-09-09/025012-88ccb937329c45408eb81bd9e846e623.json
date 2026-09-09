@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "submitted_at": "2026-09-09T02:50:12.354383+00:00",
+  "status": "reviewed",
+  "lesson": {
+    "id": "linux-0906-find",
+    "title": "01  找到需要检查的大检查点",
+    "brief": "训练项目的 artifacts 目录混有日志、说明和权重占位文件。你需要找出超过 100 MiB 的 .pt 文件，供后续检查，不要删除它们。所有权重都是稀疏占位文件，大小不代表模型准确率。",
+    "steps": "① 用 which 查询 python3 命令本体的位置。\n② 从 artifacts 开始，用 find 按名称查找所有 .pt 文件。\n③ 再同时按名称与大小筛选超过 100 MiB 的 .pt 文件。\n④ 写下筛选出的文件路径，说明 which 与 find 查找的对象有什么不同。",
+    "hint": "find artifacts -name \"*.pt\" 按名称匹配；同一条 find 中可以继续添加 -size +100M。名称模式要加引号。这里 M 按 1024² 字节计算，数据避开大小边界。",
+    "rubric": "大检查点为 artifacts/run-a/epoch-10.pt（120 MiB）和 artifacts/run-b/best.pt（160 MiB）。which 定位 PATH 中命令可执行文件，find 在指定目录树查文件。不能把同名的 .pt.txt 说明或 140 MiB 的 .log 当作权重。",
+    "checks": [
+      [
+        "which",
+        "/python3",
+        "定位 Python 命令"
+      ],
+      [
+        "find",
+        "artifacts/run-a/epoch-01.pt",
+        "按名称找到小检查点"
+      ]
+    ],
+    "state_checks": [],
+    "chapter": "26.9.6",
+    "source": "Linux系统学习/26.9.6.md",
+    "environment": "text-ops",
+    "start_cwd": "/home/student/projects/cifar10",
+    "cwd": null
+  },
+  "history": [
+    {
+      "command": "which python3",
+      "words": [
+        "which",
+        "python3"
+      ],
+      "output": "/usr/bin/python3\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "ls",
+      "words": [
+        "ls"
+      ],
+      "output": "README.md\nartifacts\ncheckpoints\ntrain.py\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "find artifacts -name \"*.pt\"",
+      "words": [
+        "find",
+        "artifacts",
+        "-name",
+        "*.pt"
+      ],
+      "output": "artifacts/run-b/best.pt\nartifacts/run-a/epoch-10.pt\nartifacts/run-a/epoch-01.pt\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "find artifacts -name \"*.pt\" -size +100M",
+      "words": [
+        "find",
+        "artifacts",
+        "-name",
+        "*.pt",
+        "-size",
+        "+100M"
+      ],
+      "output": "artifacts/run-b/best.pt\nartifacts/run-a/epoch-10.pt\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    }
+  ],
+  "answer": "artifacts/run-b/best.pt\nartifacts/run-a/epoch-10.pt\nwhich查找的是命令，find查找的是文件",
+  "local_checks": [
+    [
+      "定位 Python 命令",
+      true
+    ],
+    [
+      "按名称找到小检查点",
+      true
+    ],
+    [
+      "只筛出两个大于 100 MiB 的权重文件",
+      true
+    ]
+  ],
+  "finished_at": "2026-09-09T02:50:13.842090+00:00",
+  "passed": true,
+  "review": {
+    "passed": true,
+    "feedback": "本题回答正确，已通过。",
+    "next_step": ""
+  }
+}

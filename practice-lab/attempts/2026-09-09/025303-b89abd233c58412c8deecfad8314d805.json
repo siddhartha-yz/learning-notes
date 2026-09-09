@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "submitted_at": "2026-09-09T02:53:03.356644+00:00",
+  "status": "reviewed",
+  "lesson": {
+    "id": "linux-0906-errors",
+    "title": "02  从训练日志中提取故障证据",
+    "brief": "本题提供一次 CIFAR-10 训练的 train.log。INFO 中包含 errors=0 的常规统计，WARN 是警告；本题只将带大写 ERROR 标记的行视作错误记录。目标是定位错误行并统计错误记录数，而不是估计失败批次数。",
+    "steps": "① 用 cat 阅读 train.log。\n② 用 grep -n 筛选 ERROR，保留行号以便定位。\n③ 用管道把筛选结果交给 wc -l，统计错误记录数。\n④ 写下错误数及两条错误分别涉及什么问题，解释为什么不能直接对整个日志执行 wc -l 来统计错误。",
+    "hint": "grep -n \"ERROR\" train.log 显示匹配行及行号；grep 的输出可通过 | 交给 wc -l。wc -l 数的是输入行，不理解日志级别。",
+    "rubric": "共 2 条 ERROR：损坏图片导致解码失败（data/broken.png）与设备内存不足（CUDA out of memory）。整个日志共 6 行，还含 INFO、WARN；全日志行数不等于错误数。不要求修复训练代码。",
+    "checks": [
+      [
+        "cat",
+        "errors=0",
+        "阅读含常规统计的日志"
+      ],
+      [
+        "grep",
+        "3:ERROR",
+        "定位第一条错误行"
+      ],
+      [
+        "grep",
+        "5:ERROR",
+        "定位第二条错误行"
+      ]
+    ],
+    "state_checks": [
+      [
+        "fixture",
+        "train.log",
+        "原始训练日志保持不变"
+      ]
+    ],
+    "chapter": "26.9.6",
+    "source": "Linux系统学习/26.9.6.md",
+    "environment": "text-ops",
+    "start_cwd": "/home/student/projects/cifar10",
+    "cwd": null
+  },
+  "history": [
+    {
+      "command": "ls",
+      "words": [
+        "ls"
+      ],
+      "output": "README.md\ncheckpoints\ntrain.log\ntrain.py\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "cat train.log",
+      "words": [
+        "cat",
+        "train.log"
+      ],
+      "output": "INFO start epoch=1\nINFO errors=0\nERROR decode failed data/broken.png\nWARN slow data loader\nERROR CUDA out of memory\nINFO shutdown\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "grep -n \"ERROR\"",
+      "words": [
+        "grep",
+        "-n",
+        "ERROR"
+      ],
+      "output": "",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 1
+    },
+    {
+      "command": "grep -n \"ERROR\" train.log",
+      "words": [
+        "grep",
+        "-n",
+        "ERROR",
+        "train.log"
+      ],
+      "output": "3:ERROR decode failed data/broken.png\n5:ERROR CUDA out of memory\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "grep -n \"ERROR\" train.log | wc -l",
+      "words": [
+        "grep",
+        "-n",
+        "ERROR",
+        "train.log",
+        "|",
+        "wc",
+        "-l"
+      ],
+      "output": "2\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    }
+  ],
+  "answer": "错误数为2\n问题是\n3:ERROR decode failed data/broken.png\n5:ERROR CUDA out of memory\n对整个日志执行wc -l统计的是全部行数，没有筛选ERROR关键字。",
+  "local_checks": [
+    [
+      "阅读含常规统计的日志",
+      true
+    ],
+    [
+      "定位第一条错误行",
+      true
+    ],
+    [
+      "定位第二条错误行",
+      true
+    ],
+    [
+      "通过筛选管道统计出 2 条错误记录",
+      true
+    ],
+    [
+      "原始训练日志保持不变",
+      true
+    ]
+  ],
+  "finished_at": "2026-09-09T02:53:04.660159+00:00",
+  "passed": true,
+  "review": {
+    "passed": true,
+    "feedback": "本题回答正确，已通过。",
+    "next_step": ""
+  }
+}

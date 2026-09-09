@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "submitted_at": "2026-09-08T14:37:52.911429+00:00",
+  "status": "reviewed",
+  "lesson": {
+    "id": "linux-0904-workspace",
+    "title": "01  为一次基线训练准备输出目录",
+    "brief": "你准备运行 CIFAR-10 的 baseline 实验。初始位置是 /home/student/projects/cifar10，实验输出约定放在项目内 runs/baseline，而不是原始数据目录。只搭建目录和空日志，不启动训练。",
+    "steps": "① 用 pwd 确认项目位置。先尝试 mkdir runs/baseline/checkpoints，观察缺少父目录时的错误。\n② 修正命令，创建 runs/baseline/checkpoints 和 runs/baseline/logs。\n③ 用 touch 在 logs 中创建空的 train.log，并用 ls -l 查看它。\n④ 从项目进入 ./runs/baseline/logs，用 cd .. 返回 baseline，并用 pwd 确认。\n⑤ 写下：最初为什么失败？-p 解决什么问题？空 train.log 是否证明训练已经运行？",
+    "hint": "mkdir -p 可以连同不存在的父目录一起创建。touch 创建空文件；./ 从当前目录起算，.. 指向上一级。",
+    "rubric": "指出最初 runs 等父目录不存在；-p 创建缺失的父目录。空 train.log 仅是占位文件，不能证明训练已运行或成功。不要求运行训练。",
+    "cwd": "/home/student/projects/cifar10/runs/baseline",
+    "checks": [
+      [
+        "pwd",
+        "/home/student/projects/cifar10\n",
+        "确认项目位置"
+      ],
+      [
+        "ls",
+        "train.log",
+        "查看日志文件"
+      ]
+    ],
+    "state_checks": [
+      [
+        "dir",
+        "runs/baseline/checkpoints",
+        "检查点目录已建立"
+      ],
+      [
+        "dir",
+        "runs/baseline/logs",
+        "日志目录已建立"
+      ],
+      [
+        "empty",
+        "runs/baseline/logs/train.log",
+        "创建空日志而非目录"
+      ]
+    ],
+    "chapter": "26.9.4",
+    "source": "Linux系统学习/26.9.4.md",
+    "environment": "file-ops",
+    "start_cwd": "/home/student/projects/cifar10"
+  },
+  "history": [
+    {
+      "command": "pwd",
+      "words": [
+        "pwd"
+      ],
+      "output": "/home/student/projects/cifar10\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "ls",
+      "words": [
+        "ls"
+      ],
+      "output": "README.md\ncheckpoints\ntrain.py\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "mkdir runs/baseline/checkpoints",
+      "words": [
+        "mkdir",
+        "runs/baseline/checkpoints"
+      ],
+      "output": "mkdir: No such file or directory\n",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 1
+    },
+    {
+      "command": "mkdir -p runs/baseline/checkpoints",
+      "words": [
+        "mkdir",
+        "-p",
+        "runs/baseline/checkpoints"
+      ],
+      "output": "",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "mkdir -p runs/baseline/logs",
+      "words": [
+        "mkdir",
+        "-p",
+        "runs/baseline/logs"
+      ],
+      "output": "",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10",
+      "exit_code": 0
+    },
+    {
+      "command": "cd runs/baseline/logs",
+      "words": [
+        "cd",
+        "runs/baseline/logs"
+      ],
+      "output": "",
+      "cwd_before": "/home/student/projects/cifar10",
+      "cwd_after": "/home/student/projects/cifar10/runs/baseline/logs",
+      "exit_code": 0
+    },
+    {
+      "command": "touch train.log",
+      "words": [
+        "touch",
+        "train.log"
+      ],
+      "output": "",
+      "cwd_before": "/home/student/projects/cifar10/runs/baseline/logs",
+      "cwd_after": "/home/student/projects/cifar10/runs/baseline/logs",
+      "exit_code": 0
+    },
+    {
+      "command": "ls -l",
+      "words": [
+        "ls",
+        "-l"
+      ],
+      "output": "total 0\n-rw-rw-r-- 1 1000 1000 0 Sep  8 14:35 train.log\n",
+      "cwd_before": "/home/student/projects/cifar10/runs/baseline/logs",
+      "cwd_after": "/home/student/projects/cifar10/runs/baseline/logs",
+      "exit_code": 0
+    },
+    {
+      "command": "cd ..",
+      "words": [
+        "cd",
+        ".."
+      ],
+      "output": "",
+      "cwd_before": "/home/student/projects/cifar10/runs/baseline/logs",
+      "cwd_after": "/home/student/projects/cifar10/runs/baseline",
+      "exit_code": 0
+    },
+    {
+      "command": "pwd",
+      "words": [
+        "pwd"
+      ],
+      "output": "/home/student/projects/cifar10/runs/baseline\n",
+      "cwd_before": "/home/student/projects/cifar10/runs/baseline",
+      "cwd_after": "/home/student/projects/cifar10/runs/baseline",
+      "exit_code": 0
+    }
+  ],
+  "answer": "最初失败是因为没有runs这个目录，创建不了。-p让父目录不存在时可以一起创建。空train.log当然不能证明训练已经运行，训练的运行要看进程状态，硬件占用等各种指标，而不是一个静态文档。",
+  "local_checks": [
+    [
+      "确认项目位置",
+      true
+    ],
+    [
+      "查看日志文件",
+      true
+    ],
+    [
+      "检查点目录已建立",
+      true
+    ],
+    [
+      "日志目录已建立",
+      true
+    ],
+    [
+      "创建空日志而非目录",
+      true
+    ],
+    [
+      "结束时所在目录正确",
+      true
+    ]
+  ],
+  "finished_at": "2026-09-08T14:37:58.188252+00:00",
+  "passed": true,
+  "review": {
+    "passed": true,
+    "feedback": "本题回答正确，已通过。",
+    "next_step": ""
+  }
+}
