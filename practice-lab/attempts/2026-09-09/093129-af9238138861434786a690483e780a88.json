@@ -1,0 +1,51 @@
+{
+  "schema_version": 2,
+  "kind": "pytorch_tutorial_run",
+  "submitted_at": "2026-09-09T09:31:29.053537+00:00",
+  "status": "executed",
+  "lesson": {
+    "id": "torch-batch",
+    "chapter": "01A · 张量表示",
+    "title": "01  一批样本，而不是一串数字",
+    "brief": "一个分类器每次接收 B 个样本，每个样本有 D 个数值特征。features 是 B 行 D 列的 Python 列表，labels 是 B 个类别编号。请把它们变成两个 CPU 张量，作为之后模型的输入。B、D 均为正整数，标签是非负整数。",
+    "prediction": "先预测：features=[[1,2],[3,4],[5,6]]、labels=[0,1,0] 时，X 与 y 各是什么形状？若只保留一个样本，两个形状又是什么？",
+    "explanation": "解释 X 的两个轴分别表示什么，以及为什么只有一个样本时仍要保留 batch 轴。",
+    "rubric": "X=[3,2], y=[3]；单样本 X=[1,2], y=[1]。第0轴是样本，第1轴是特征；单样本仍属于批处理约定。只要求解释轴语义，不要求深入解释整数标签的算子实现。",
+    "starter": "import torch\n\ndef build_batch(features, labels):\n    # 返回 X, y\n    raise NotImplementedError\n",
+    "hints": [
+      "先区分数据的层次：最外层是一批样本，每个样本内才是特征。单样本不会自动消失一层。",
+      "可查 torch.tensor(data, dtype=...)；本题需要 torch.float32 与 torch.int64。",
+      "分别构造特征张量与标签张量，显式指定 dtype；不要把所有样本拼成一条向量。"
+    ],
+    "sources": [
+      "Pytorch语法/26.9.9.md"
+    ],
+    "track": "PyTorch",
+    "kind": "pytorch",
+    "source": "practice-lab/pytorch/ROADMAP.md",
+    "checks": [],
+    "cwd": null,
+    "steps": "实现 build_batch(features, labels)，返回 (X, y)。X 的形状为 [B,D]、dtype 为 torch.float32；y 的形状为 [B]、dtype 为 torch.int64。保持原始样本和特征顺序，不修改输入列表。\n\n运行前预测\n先预测：features=[[1,2],[3,4],[5,6]]、labels=[0,1,0] 时，X 与 y 各是什么形状？若只保留一个样本，两个形状又是什么？\n\n提交时解释\n解释 X 的两个轴分别表示什么，以及为什么只有一个样本时仍要保留 batch 轴。",
+    "hint": "先区分数据的层次：最外层是一批样本，每个样本内才是特征。单样本不会自动消失一层。"
+  },
+  "code": "import torch\n\nmeasurements = [[0.5, 2.0, 7.0], [1.5, 4.0, 8.0]]\nx = torch.tensor(measurements, dtype=torch.float32)\nids = torch.tensor([2, 0], dtype=torch.int64)\nprint(x)\nprint(\"特征形状:\", tuple(x.shape), \"类型:\", x.dtype)\nprint(\"标签形状:\", tuple(ids.shape), \"类型:\", ids.dtype)\nprint(\"设备:\", x.device)\n",
+  "prediction": "",
+  "explanation": "",
+  "local_result": {
+    "mode": "tutorial",
+    "torch_version": "2.14.0+cpu",
+    "passed": true,
+    "cases": [],
+    "stdout": "tensor([[0.5000, 2.0000, 7.0000],\n        [1.5000, 4.0000, 8.0000]])\n特征形状: (2, 3) 类型: torch.float32\n标签形状: (2,) 类型: torch.int64\n设备: cpu\n",
+    "error": "",
+    "elapsed_seconds": 1.77
+  },
+  "hint_level": 0,
+  "tutorial": {
+    "title": "从 Python 列表到模型输入",
+    "lesson": "先认识三件事\nTensor（张量）是 PyTorch 保存和计算数值的对象。这里先把它理解为有明确形状和数值类型的数组。Python 列表能装数据，模型运算通常接收 Tensor。\n\nshape 是形状：每个轴上有多少个位置。[2, 3] 表示 2 行、3 列，不是数值 2 和 3。轴从 0 编号：axis 0 是行，axis 1 是列。在模型输入中，我们约定每行是一条样本，每列是一种特征。\n\ndtype 是每个元素的数值类型。连续特征需要小数，常用 torch.float32；类别编号是整数，常用 torch.int64（也叫 torch.long）。这两个名字没有引号，它们是 torch 提供的类型对象。\n\n逐行读下面的例子\n① import torch：导入库，之后用 torch.名字 调用它提供的功能。\n② measurements：两条传感器样本，每条有三个特征，仍是普通 Python 列表。\n③ torch.tensor(数据, dtype=类型)：根据数据创建 Tensor。dtype= 是具名参数，明确指定类型；不写 device 时本课程默认环境创建 CPU 张量。\n④ x.shape / x.dtype：读取属性，不加括号；tuple(x.shape) 把形状显示成普通元组。print(...) 把结果显示在下方。\n⑤ ids：给类别编号创建整数张量。一层列表的形状只有一个轴；长度是样本数。\n\n从例子迁移到本题\n本题要把调用者传入的 features 和 labels 转换成张量，不能把示例里的数字写死。Python 的 return x, y 会返回两个对象组成的元组，调用方可用 X, y = build_batch(...) 接住。函数骨架里的 raise NotImplementedError 是待实现标记，写好函数后需要替换它。",
+    "code": "import torch\n\nmeasurements = [[0.5, 2.0, 7.0], [1.5, 4.0, 8.0]]\nx = torch.tensor(measurements, dtype=torch.float32)\nids = torch.tensor([2, 0], dtype=torch.int64)\nprint(x)\nprint(\"特征形状:\", tuple(x.shape), \"类型:\", x.dtype)\nprint(\"标签形状:\", tuple(ids.shape), \"类型:\", ids.dtype)\nprint(\"设备:\", x.device)\n",
+    "observe": "先运行：特征形状应是 (2, 3)，标签形状是 (2,)。元组中的逗号表示只有一个轴。再把 measurements 改成 [[0.5, 2.0, 7.0]]，ids 改成 [2]，运行观察 (1, 3) 与 (1,)：只有一个样本也没有丢掉样本轴。对比 [0.5, 2.0, 7.0] 与 [[0.5, 2.0, 7.0]] 的形状。"
+  },
+  "passed": false
+}
