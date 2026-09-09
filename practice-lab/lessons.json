@@ -249,5 +249,106 @@
     "source": "Linux系统学习/26.9.4.md",
     "environment": "file-ops",
     "start_cwd": "/home/student/projects/cifar10"
+  },
+  {
+    "id": "linux-0906-find",
+    "title": "01  找到需要检查的大检查点",
+    "brief": "训练项目的 artifacts 目录混有日志、说明和权重占位文件。你需要找出超过 100 MiB 的 .pt 文件，供后续检查，不要删除它们。所有权重都是稀疏占位文件，大小不代表模型准确率。",
+    "steps": "① 用 which 查询 python3 命令本体的位置。\n② 从 artifacts 开始，用 find 按名称查找所有 .pt 文件。\n③ 再同时按名称与大小筛选超过 100 MiB 的 .pt 文件。\n④ 写下筛选出的文件路径，说明 which 与 find 查找的对象有什么不同。",
+    "hint": "find artifacts -name \"*.pt\" 按名称匹配；同一条 find 中可以继续添加 -size +100M。名称模式要加引号。这里 M 按 1024² 字节计算，数据避开大小边界。",
+    "rubric": "大检查点为 artifacts/run-a/epoch-10.pt（120 MiB）和 artifacts/run-b/best.pt（160 MiB）。which 定位 PATH 中命令可执行文件，find 在指定目录树查文件。不能把同名的 .pt.txt 说明或 140 MiB 的 .log 当作权重。",
+    "checks": [
+      [
+        "which",
+        "/python3",
+        "定位 Python 命令"
+      ],
+      [
+        "find",
+        "artifacts/run-a/epoch-01.pt",
+        "按名称找到小检查点"
+      ]
+    ],
+    "state_checks": [],
+    "chapter": "26.9.6",
+    "source": "Linux系统学习/26.9.6.md",
+    "environment": "text-ops",
+    "start_cwd": "/home/student/projects/cifar10",
+    "cwd": null
+  },
+  {
+    "id": "linux-0906-errors",
+    "title": "02  从训练日志中提取故障证据",
+    "brief": "本题提供一次 CIFAR-10 训练的 train.log。INFO 中包含 errors=0 的常规统计，WARN 是警告；本题只将带大写 ERROR 标记的行视作错误记录。目标是定位错误行并统计错误记录数，而不是估计失败批次数。",
+    "steps": "① 用 cat 阅读 train.log。\n② 用 grep -n 筛选 ERROR，保留行号以便定位。\n③ 用管道把筛选结果交给 wc -l，统计错误记录数。\n④ 写下错误数及两条错误分别涉及什么问题，解释为什么不能直接对整个日志执行 wc -l 来统计错误。",
+    "hint": "grep -n \"ERROR\" train.log 显示匹配行及行号；grep 的输出可通过 | 交给 wc -l。wc -l 数的是输入行，不理解日志级别。",
+    "rubric": "共 2 条 ERROR：损坏图片导致解码失败（data/broken.png）与设备内存不足（CUDA out of memory）。整个日志共 6 行，还含 INFO、WARN；全日志行数不等于错误数。不要求修复训练代码。",
+    "checks": [
+      [
+        "cat",
+        "errors=0",
+        "阅读含常规统计的日志"
+      ],
+      [
+        "grep",
+        "3:ERROR",
+        "定位第一条错误行"
+      ],
+      [
+        "grep",
+        "5:ERROR",
+        "定位第二条错误行"
+      ]
+    ],
+    "state_checks": [
+      [
+        "fixture",
+        "train.log",
+        "原始训练日志保持不变"
+      ]
+    ],
+    "chapter": "26.9.6",
+    "source": "Linux系统学习/26.9.6.md",
+    "environment": "text-ops",
+    "start_cwd": "/home/student/projects/cifar10",
+    "cwd": null
+  },
+  {
+    "id": "linux-0906-report",
+    "title": "03  导出验证记录，补充实验来源",
+    "brief": "本题有 metrics.log，混合记录 train 与 val 两种数据划分。summary.txt 已有上一轮遗留内容 STALE，必须替换。只整理已有评估记录，不启动训练。",
+    "steps": "① 用 cat 查看 metrics.log。\n② 筛选包含 split=val 的行，用 > 覆盖写入 summary.txt。\n③ 用 echo 与反引号中的 pwd，将 project=当前项目绝对路径作为新行，用 >> 追加到 summary.txt。\n④ 再追加一行 status=reviewed，用 tail -3 检查文件末尾。\n⑤ 写下 > 与 >> 的区别，并说明为什么验证摘要不能混入 split=train 的记录。",
+    "hint": "grep 的输出可重定向到文件；echo \"project=`pwd`\" 会把当前位置拼入文字。> 替换旧内容，>> 保留旧内容并追加。",
+    "rubric": "> 覆盖旧内容，>> 追加；train 是训练划分，不能混作 val 验证结果。摘要应只有两行 val 指标和 project、status 两行，不能留下 STALE 或丢失验证记录。",
+    "checks": [
+      [
+        "cat",
+        "split=train",
+        "阅读原始指标"
+      ],
+      [
+        "tail",
+        "status=reviewed",
+        "检查摘要结尾"
+      ]
+    ],
+    "state_checks": [
+      [
+        "text",
+        "summary.txt",
+        "摘要含完整验证记录与追加说明",
+        "epoch=1 split=val accuracy=0.61\nepoch=2 split=val accuracy=0.68\nproject=/home/student/projects/cifar10\nstatus=reviewed\n"
+      ],
+      [
+        "fixture",
+        "metrics.log",
+        "原始指标保持不变"
+      ]
+    ],
+    "chapter": "26.9.6",
+    "source": "Linux系统学习/26.9.6.md",
+    "environment": "text-ops",
+    "start_cwd": "/home/student/projects/cifar10",
+    "cwd": null
   }
 ]

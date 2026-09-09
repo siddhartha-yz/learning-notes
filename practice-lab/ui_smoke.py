@@ -7,7 +7,9 @@ import time
 from unittest.mock import patch
 import app
 import core
-from test_file_ops import WORKFLOWS
+from test_file_ops import WORKFLOWS as FILE_WORKFLOWS
+from test_text_ops import WORKFLOWS as TEXT_WORKFLOWS
+WORKFLOWS = {**FILE_WORKFLOWS, **TEXT_WORKFLOWS}
 from gi.repository import Gtk, Gdk, GLib
 
 
@@ -33,7 +35,7 @@ def main():
         window.show_all()
         try:
             assert len(window.selector.get_model()) == 3
-            assert len(window.chapter_selector.get_model()) == 2
+            assert len(window.chapter_selector.get_model()) == len(window.chapters)
             window.chapter_selector.set_active(1)
             assert window.index == 3
             assert len(window.selector.get_model()) == 3
@@ -63,7 +65,7 @@ def main():
             window.next_button.emit('clicked')
             for index, lesson in enumerate(app.LESSONS[3:], 3):
                 assert window.index == index
-                assert '26.9.4' in window.subtitle.get_text()
+                assert lesson['chapter'] in window.subtitle.get_text()
                 assert window.session.writable
                 for command in WORKFLOWS[lesson['id']]:
                     window.entry.set_text(command)
@@ -85,16 +87,16 @@ def main():
             assert '全部完成' in window.lesson_status.get_text()
             assert not window.next_button.get_visible()
             logs = list(core.ATTEMPTS.rglob('*.json'))
-            assert len(logs) == 3
+            assert len(logs) == len(WORKFLOWS)
             for path in logs:
                 data = core.read_json(path, {})
                 assert data['status'] == 'reviewed'
-                assert data['lesson']['chapter'] == '26.9.4'
+                assert data['lesson']['chapter'] in ('26.9.4', '26.9.6')
                 assert data['history'] and data['local_checks']
             window.select_lesson(0)
             assert not window.session.writable
             assert len(window.session.commands) == 3
-            print('GTK smoke passed: chapter navigation, 3 real workflows, Space paging, mock review, logs, completion, old chapter')
+            print('GTK smoke passed: chapter navigation, 6 real workflows, Space paging, mock review, logs, completion, old chapter')
         finally:
             window.session.close()
             window.destroy()

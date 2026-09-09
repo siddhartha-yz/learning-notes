@@ -3,6 +3,7 @@ import json
 from datetime import datetime, timezone
 from uuid import uuid4
 import os
+import posixpath
 from pathlib import Path
 import shlex
 import signal
@@ -82,10 +83,44 @@ def review_message(passed, result):
     return '尚未通过：' + result['feedback']
 
 
+def validate_text_command(command, allowed):
+    # Validate every pipeline stage, not just the first executable. Shell syntax
+    # remains intentionally scoped; the only supported substitution is `pwd`.
+    plain = command.replace('`pwd`', '/home/student/projects/cifar10')
+    if any(c in plain for c in ';&<`$(){}\n\r') or '#' in plain:
+        raise ValueError('本章支持管道、>、>> 和 `pwd`，不支持其他 shell 语法。')
+    lexer = shlex.shlex(plain, posix=True, punctuation_chars='|>')
+    lexer.whitespace_split = True
+    tokens = list(lexer)
+    need_command = True
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if need_command:
+            if token not in allowed:
+                raise ValueError('管道中的每个命令都必须属于本章支持范围。')
+            need_command = False
+        elif token == '|':
+            need_command = True
+        elif token in ('>', '>>'):
+            i += 1
+            if i >= len(tokens) or tokens[i] in ('|', '>', '>>'):
+                raise ValueError('重定向后需要目标文件路径。')
+        elif token and all(c in '|>' for c in token):
+            raise ValueError('不支持这个管道或重定向组合。')
+        i += 1
+    if need_command:
+        raise ValueError('管道后需要一个命令。')
+    if any(t in tokens for t in ('-exec', '-execdir', '-ok', '-okdir', '-delete', '-fprint', '-fprintf', '-fls')):
+        raise ValueError('本章 find 只用于查找，不执行或删除文件。')
+    if '-f' in tokens or '--follow' in tokens or any(t.startswith('--follow=') for t in tokens):
+        raise ValueError('本版使用 tail 查看已有日志，暂不支持持续跟踪。')
+
+
 class Session:
     def __init__(self, lesson=None):
         self.lesson = lesson or LESSONS[0]
-        self.writable = self.lesson.get('environment') == 'file-ops'
+        self.writable = self.lesson.get('environment') in ('file-ops', 'text-ops')
         self.pager = None
         self.fixtures = {}
         self.temp = tempfile.TemporaryDirectory(prefix='learning-notes-lab-')
@@ -133,7 +168,7 @@ class Session:
             # Each exercise starts independently with only relevant fixtures.
             prefix = {'linux-0904-workspace': None,
                       'linux-0904-config': 'templates/',
-                      'linux-0904-cleanup': 'runs/review/'}[self.lesson['id']]
+                      'linux-0904-cleanup': 'runs/review/'}.get(self.lesson['id'])
             for name, content in fixtures.items():
                 if prefix and name.startswith(prefix):
                     path = project / name
@@ -141,8 +176,26 @@ class Session:
                     path.write_text(content)
                     self.fixtures[name] = content
 
+        if self.lesson['id'] == 'linux-0906-find':
+            for name, size in [('run-a/epoch-01.pt', 12), ('run-a/epoch-10.pt', 120),
+                               ('run-b/best.pt', 160), ('run-b/best.pt.txt', 1), ('run-b/debug.log', 140)]:
+                path = project / 'artifacts' / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with path.open('wb') as handle:
+                    handle.truncate(size * 1024**2)
+        if self.lesson['id'] == 'linux-0906-errors':
+            self.fixtures = {'train.log': 'INFO start epoch=1\nINFO errors=0\nERROR decode failed data/broken.png\nWARN slow data loader\nERROR CUDA out of memory\nINFO shutdown\n'}
+        if self.lesson['id'] == 'linux-0906-report':
+            self.fixtures = {'metrics.log': 'epoch=1 split=train accuracy=0.76\nepoch=1 split=val accuracy=0.61\nepoch=2 split=train accuracy=0.85\nepoch=2 split=val accuracy=0.68\n'}
+            (project / 'summary.txt').write_text('STALE\n')
+        if self.lesson.get('environment') == 'text-ops':
+            for name, content in self.fixtures.items():
+                (project / name).write_text(content)
+
     @property
     def commands(self):
+        if self.lesson.get('environment') == 'text-ops':
+            return ('ls', 'cd', 'pwd', 'cat', 'which', 'find', 'grep', 'wc', 'echo', 'tail')
         return ('ls', 'cd', 'pwd', 'mkdir', 'touch', 'cat', 'more', 'cp', 'mv', 'rm') if self.writable else ('ls', 'cd', 'pwd')
 
     def page(self, key):
@@ -174,7 +227,9 @@ class Session:
             raise ValueError('请先按 Space 翻页或 q 退出分页。')
         if not words or words[0] not in self.commands:
             raise ValueError('本课支持 ' + '、'.join(self.commands) + '；每次输入一条命令。')
-        if any(c in command for c in ';|&<>`$(){}\n\r'):
+        if self.lesson.get('environment') == 'text-ops':
+            validate_text_command(command, self.commands)
+        elif any(c in command for c in ';|&<>`$(){}\n\r'):
             raise ValueError('本课每次执行一条命令，不使用管道、重定向或变量。')
         if len(command) > 2000:
             raise ValueError('命令过长。')
@@ -185,6 +240,9 @@ class Session:
         for directory in ['/bin', '/lib', '/lib64']:
             if Path(directory).exists():
                 args += ['--ro-bind', directory, directory]
+        which = Path('/usr/bin/which')
+        if which.is_symlink() and str(which.readlink()).startswith('/etc/') and which.exists():
+            args += ['--ro-bind', str(which.resolve()), str(which.readlink())]
         args += ['--bind' if self.writable else '--ro-bind', str(self.root / 'home'), '/home',
                  '--ro-bind', str(self.root / 'datasets'), '/datasets',
                  '--dev', '/dev', '--chdir', self.cwd]
@@ -194,7 +252,7 @@ class Session:
         script += '\nresult=$?\nprintf "\\n' + marker + '%s\\n" "$PWD"\nexit "$result"'
         with tempfile.TemporaryFile() as output:
             proc = subprocess.Popen(args + ['/bin/bash', '--noprofile', '--norc', '-c',
-                                             'ulimit -f 128; ' + script],
+                                             'ulimit -f 128; set -o pipefail; ' + script],
                                     stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
             try:
                 proc.wait(timeout=4)
@@ -265,7 +323,10 @@ def checks(lesson, session):
             correct = correct and not options
         if kind == 'long_human':
             correct = correct and 'l' in options and 'h' in options
-        return correct and record['exit_code'] == 0 and needle in record['output']
+        output = record['output']
+        if kind == 'find':
+            output += '\n' + '\n'.join(posixpath.normpath(posixpath.join(record['cwd_before'], line)) for line in output.splitlines())
+        return correct and record['exit_code'] == 0 and needle in output
     results = [(title, any(matches(r, kind, needle) for r in session.history))
                for kind, needle, title in lesson['checks']]
     if lesson['id'] == 'linux-0903-location':
@@ -276,6 +337,17 @@ def checks(lesson, session):
     if lesson['id'] == 'linux-0903-checkpoint':
         results.append(('使用不带参数的 cd 返回 Home', any(
             r['words'] == ['cd'] and r['exit_code'] == 0 for r in session.history)))
+    if lesson['id'] == 'linux-0906-find':
+        expected = {'artifacts/run-a/epoch-10.pt', 'artifacts/run-b/best.pt'}
+        def large_only(r):
+            prefix = '/home/student/projects/cifar10/'
+            lines = {posixpath.normpath(posixpath.join(r['cwd_before'], line)).removeprefix(prefix) for line in r['output'].splitlines()}
+            return r['words'][0] == 'find' and r['exit_code'] == 0 and lines == expected
+        results.append(('只筛出两个大于 100 MiB 的权重文件', any(large_only(r) for r in session.history)))
+    if lesson['id'] == 'linux-0906-errors':
+        results.append(('通过筛选管道统计出 2 条错误记录', any(
+            r['exit_code'] == 0 and '|' in r['command'] and 'grep' in r['command']
+            and 'wc' in r['command'] and r['output'].strip() == '2' for r in session.history)))
     results.extend(state_checks(lesson, session))
     if session.pager:
         results.append(('读完分页或退出后再提交', False))
